@@ -405,55 +405,105 @@ namespace SewerMenu.UI
         private void DrawWindowContent()
         {
             // ═══════════════════════════════════════════════════════════
-            // HEADER
+            // HEADER - Clean modern style
             // ═══════════════════════════════════════════════════════════
-            var oldBg = GUI.backgroundColor;
-            GUI.backgroundColor = new Color(0.04f, 0.05f, 0.065f, 1f);
-            GUILayout.BeginVertical(GUI.skin.box);
-            GUI.backgroundColor = oldBg;
+            Rect headerRect = GUILayoutUtility.GetRect(0, 32, GUILayout.ExpandWidth(true));
             
-            GUILayout.BeginHorizontal();
-            GUILayout.Space(4);
-            var oldColor = GUI.contentColor;
+            // Header background with subtle gradient feel
+            var oldColor = GUI.color;
+            GUI.color = new Color(0.04f, 0.05f, 0.07f, 1f);
+            GUI.DrawTexture(headerRect, Texture2D.whiteTexture);
+            GUI.color = oldColor;
+            
+            // Title: "SEWER" in accent, "MENU" in white
+            var titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold };
+            
+            var oldContentColor = GUI.contentColor;
             GUI.contentColor = SewerSkin.AccentColor;
-            GUILayout.Label("SEWER", GUILayout.Height(24));
+            GUI.Label(new Rect(headerRect.x + 12, headerRect.y + 6, 60, 20), "SEWER", titleStyle);
+            
             GUI.contentColor = SewerSkin.TextColor;
-            GUILayout.Label("MENU", GUILayout.Height(24));
-            GUI.contentColor = SewerSkin.TextMutedColor;
-            GUILayout.FlexibleSpace();
-            GUILayout.Label("v" + ModInfo.Version, GUILayout.Height(24));
-            GUILayout.Space(4);
-            GUI.contentColor = oldColor;
-            GUILayout.EndHorizontal();
+            GUI.Label(new Rect(headerRect.x + 70, headerRect.y + 6, 50, 20), "MENU", titleStyle);
             
-            GUILayout.EndVertical();
+            // Version badge on right
+            string versionText = "v" + ModInfo.Version;
+            var versionStyle = new GUIStyle(GUI.skin.label) { fontSize = 10, alignment = TextAnchor.MiddleRight };
             
-            GUILayout.Space(4);
+            // Version badge background
+            float badgeWidth = 42;
+            Rect badgeRect = new Rect(headerRect.x + headerRect.width - badgeWidth - 10, headerRect.y + 8, badgeWidth, 16);
+            GUI.color = new Color(SewerSkin.AccentColor.r, SewerSkin.AccentColor.g, SewerSkin.AccentColor.b, 0.15f);
+            GUI.DrawTexture(badgeRect, Texture2D.whiteTexture);
+            GUI.color = oldColor;
+            
+            GUI.contentColor = SewerSkin.AccentGlow;
+            GUI.Label(badgeRect, versionText, new GUIStyle(GUI.skin.label) { fontSize = 10, alignment = TextAnchor.MiddleCenter });
+            GUI.contentColor = oldContentColor;
+            
+            // Bottom border
+            GUI.color = new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.4f);
+            GUI.DrawTexture(new Rect(headerRect.x, headerRect.y + headerRect.height - 1, headerRect.width, 1), Texture2D.whiteTexture);
+            GUI.color = oldColor;
             
             // ═══════════════════════════════════════════════════════════
-            // TAB BAR
+            // TAB BAR - Modern style with underline indicator
             // ═══════════════════════════════════════════════════════════
-            GUILayout.Space(2);
-            GUILayout.BeginHorizontal();
+            GUILayout.Space(4);
+            
+            // Tab bar background
+            Rect tabBarRect = GUILayoutUtility.GetRect(0, 36, GUILayout.ExpandWidth(true));
+            oldColor = GUI.color;
+            GUI.color = new Color(0.06f, 0.075f, 0.09f, 1f);
+            GUI.DrawTexture(tabBarRect, Texture2D.whiteTexture);
+            GUI.color = oldColor;
+            
+            // Calculate tab widths
+            float tabWidth = tabBarRect.width / _tabNames.Length;
+            float tabHeight = 34f;
+            
+            // Draw tabs
             for (int i = 0; i < _tabNames.Length; i++)
             {
                 bool isSelected = (_currentTab == i);
+                Rect tabRect = new Rect(tabBarRect.x + i * tabWidth, tabBarRect.y, tabWidth, tabHeight);
                 
-                oldBg = GUI.backgroundColor;
-                oldColor = GUI.contentColor;
+                // Hover detection
+                bool isHovered = tabRect.Contains(Event.current.mousePosition);
                 
+                // Tab background on hover (subtle)
+                if (isHovered && !isSelected)
+                {
+                    oldColor = GUI.color;
+                    GUI.color = new Color(0.1f, 0.12f, 0.15f, 1f);
+                    GUI.DrawTexture(new Rect(tabRect.x + 2, tabRect.y + 2, tabRect.width - 4, tabRect.height - 4), Texture2D.whiteTexture);
+                    GUI.color = oldColor;
+                }
+                
+                // Tab text
+                oldContentColor = GUI.contentColor;
+                GUI.contentColor = isSelected ? SewerSkin.TextColor : (isHovered ? SewerSkin.TextColor : SewerSkin.TextMutedColor);
+                var tabStyle = new GUIStyle(GUI.skin.label) 
+                { 
+                    alignment = TextAnchor.MiddleCenter, 
+                    fontSize = 12,
+                    fontStyle = isSelected ? FontStyle.Bold : FontStyle.Normal
+                };
+                GUI.Label(tabRect, _tabNames[i], tabStyle);
+                GUI.contentColor = oldContentColor;
+                
+                // Underline indicator for selected tab
                 if (isSelected)
                 {
-                    GUI.backgroundColor = SewerSkin.AccentColor;
-                    GUI.contentColor = new Color(0.02f, 0.04f, 0.06f, 1f);
-                }
-                else
-                {
-                    GUI.backgroundColor = new Color(0.1f, 0.12f, 0.14f, 1f);
-                    GUI.contentColor = SewerSkin.TextMutedColor;
+                    oldColor = GUI.color;
+                    GUI.color = SewerSkin.AccentColor;
+                    float underlineWidth = tabWidth * 0.6f;
+                    float underlineX = tabRect.x + (tabWidth - underlineWidth) / 2f;
+                    GUI.DrawTexture(new Rect(underlineX, tabRect.y + tabHeight - 3, underlineWidth, 3), Texture2D.whiteTexture);
+                    GUI.color = oldColor;
                 }
                 
-                if (GUILayout.Button(_tabNames[i], GUILayout.Height(28)))
+                // Invisible button for click detection
+                if (GUI.Button(tabRect, "", GUIStyle.none))
                 {
                     if (_currentTab != i)
                     {
@@ -461,25 +511,20 @@ namespace SewerMenu.UI
                         _scrollPosition = Vector2.zero;
                     }
                 }
-                
-                GUI.backgroundColor = oldBg;
-                GUI.contentColor = oldColor;
             }
-            GUILayout.EndHorizontal();
             
-            // Accent line under tabs - using DrawTexture for clean rendering
-            Rect accentLineRect = GUILayoutUtility.GetRect(0, 2, GUILayout.ExpandWidth(true));
+            // Bottom border line
             oldColor = GUI.color;
-            GUI.color = SewerSkin.AccentColor;
-            GUI.DrawTexture(accentLineRect, Texture2D.whiteTexture);
+            GUI.color = new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.5f);
+            GUI.DrawTexture(new Rect(tabBarRect.x, tabBarRect.y + tabHeight, tabBarRect.width, 1), Texture2D.whiteTexture);
             GUI.color = oldColor;
             
-            GUILayout.Space(6);
+            GUILayout.Space(8);
             
             // ═══════════════════════════════════════════════════════════
             // CONTENT AREA
             // ═══════════════════════════════════════════════════════════
-            oldBg = GUI.backgroundColor;
+            var oldBg = GUI.backgroundColor;
             GUI.backgroundColor = new Color(0.055f, 0.07f, 0.085f, 1f);
             _scrollPosition = GUILayout.BeginScrollView(_scrollPosition, GUI.skin.box, GUILayout.ExpandHeight(true));
             GUI.backgroundColor = oldBg;
@@ -499,29 +544,41 @@ namespace SewerMenu.UI
             
             GUILayout.EndScrollView();
             
-            GUILayout.Space(4);
+            GUILayout.Space(2);
             
             // ═══════════════════════════════════════════════════════════
-            // STATUS BAR
+            // STATUS BAR - Clean modern style
             // ═══════════════════════════════════════════════════════════
-            oldBg = GUI.backgroundColor;
-            GUI.backgroundColor = new Color(0.04f, 0.05f, 0.065f, 1f);
-            GUILayout.BeginHorizontal(GUI.skin.box, GUILayout.Height(24));
-            GUI.backgroundColor = oldBg;
+            Rect statusRect = GUILayoutUtility.GetRect(0, 26, GUILayout.ExpandWidth(true));
             
-            GUILayout.Space(6);
-            oldColor = GUI.contentColor;
+            // Status bar background
+            oldColor = GUI.color;
+            GUI.color = new Color(0.04f, 0.05f, 0.065f, 1f);
+            GUI.DrawTexture(statusRect, Texture2D.whiteTexture);
+            
+            // Top border
+            GUI.color = new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.3f);
+            GUI.DrawTexture(new Rect(statusRect.x, statusRect.y, statusRect.width, 1), Texture2D.whiteTexture);
+            GUI.color = oldColor;
+            
+            // Active features indicator (left side)
+            int activeCount = FeatureManager.Instance.EnabledCount;
+            var statusStyle = new GUIStyle(GUI.skin.label) { fontSize = 11 };
+            
+            // Green dot
+            oldContentColor = GUI.contentColor;
             GUI.contentColor = SewerSkin.SuccessColor;
-            GUILayout.Label("●", GUILayout.Width(12));
-            GUI.contentColor = SewerSkin.TextMutedColor;
-            GUILayout.Label(FeatureManager.Instance.EnabledCount + " active");
-            GUILayout.FlexibleSpace();
-            GUI.contentColor = new Color(0.4f, 0.43f, 0.47f, 1f);
-            GUILayout.Label("F8 toggle  •  ESC close");
-            GUILayout.Space(6);
-            GUI.contentColor = oldColor;
+            GUI.Label(new Rect(statusRect.x + 10, statusRect.y + 5, 14, 16), "●", statusStyle);
             
-            GUILayout.EndHorizontal();
+            // Active count
+            GUI.contentColor = SewerSkin.TextMutedColor;
+            GUI.Label(new Rect(statusRect.x + 24, statusRect.y + 5, 80, 16), activeCount + " active", statusStyle);
+            
+            // Keyboard shortcuts (right side)
+            GUI.contentColor = new Color(0.35f, 0.38f, 0.42f, 1f);
+            var shortcutStyle = new GUIStyle(GUI.skin.label) { fontSize = 10, alignment = TextAnchor.MiddleRight };
+            GUI.Label(new Rect(statusRect.x + statusRect.width - 140, statusRect.y + 6, 130, 14), "F8 toggle  ·  ESC close", shortcutStyle);
+            GUI.contentColor = oldContentColor;
         }
         
         #endregion
