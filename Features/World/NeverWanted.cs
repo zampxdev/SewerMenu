@@ -5,10 +5,6 @@ using SewerMenu.Utils;
 
 namespace SewerMenu.Features.World
 {
-    /// <summary>
-    /// Prevents wanted level from ever increasing.
-    /// Continuously resets police suspicion to 0.
-    /// </summary>
     public class NeverWanted : FeatureBase
     {
         public override string Id => "neverwanted";

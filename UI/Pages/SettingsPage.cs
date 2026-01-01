@@ -7,9 +7,6 @@ using SewerMenu.Core.Logging;
 
 namespace SewerMenu.UI.Pages
 {
-    /// <summary>
-    /// Page for mod settings.
-    /// </summary>
     public class SettingsPage : PageBase
     {
         public override string Title => "Settings";
@@ -19,12 +16,10 @@ namespace SewerMenu.UI.Pages
 
         protected override void DrawContent()
         {
-            // General Section
             DrawSection("GENERAL");
             
             var config = ConfigManager.Instance.Config;
             
-            // Menu toggle key
             GUILayout.BeginHorizontal();
             GUILayout.Label("Menu Toggle Key:", GUILayout.Width(120));
             
@@ -55,7 +50,6 @@ namespace SewerMenu.UI.Pages
             
             GUILayout.Space(8);
             
-            // Config actions
             GUILayout.BeginHorizontal();
             if (DrawButton("Save Config", 100))
             {
@@ -77,7 +71,6 @@ namespace SewerMenu.UI.Pages
                 SewerLogger.Info("All features disabled");
             }
             
-            // Keybinds Section
             DrawSection("KEYBINDS");
             
             oldColor = GUI.contentColor;
@@ -136,7 +129,6 @@ namespace SewerMenu.UI.Pages
             GUILayout.EndScrollView();
             SewerSkin.EndBox();
             
-            // About Section
             DrawSection("ABOUT");
             
             oldColor = GUI.contentColor;

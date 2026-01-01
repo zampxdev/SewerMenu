@@ -5,22 +5,6 @@ using SewerMenu.Utils;
 
 namespace SewerMenu.Features.World
 {
-    /// <summary>
-    /// Controls the in-game time.
-    /// Uses direct IL2CPP access via GameTypes.Time.
-    /// 
-    /// Key properties:
-    /// - CurrentTime (get/set) - Time in minutes (0-1440)
-    /// - ElapsedDays (get/set) - Total days elapsed
-    /// - CurrentDay (get) - Day of week (EDay enum)
-    /// - IsNight (get) - Whether it's nighttime
-    /// - TimeProgressionMultiplier (get/set) - Speed of time
-    /// 
-    /// Key methods:
-    /// - SetTime(int time, bool local) - Sets time in minutes
-    /// - SetElapsedDays(int days) - Sets elapsed days
-    /// - ForceSleep() - Forces sleep
-    /// </summary>
     public class TimeController : FeatureBase
     {
         public override string Id => "timecontroller";
@@ -35,9 +19,6 @@ namespace SewerMenu.Features.World
         private float _originalTimeMultiplier = 1f;
         private bool _wasTimeFrozen = false;
 
-        /// <summary>
-        /// Gets the current time of day (0-24 hours).
-        /// </summary>
         public float GetCurrentTime()
         {
             var time = GameTypes.Time;
@@ -45,8 +26,7 @@ namespace SewerMenu.Features.World
 
             try
             {
-                // CurrentTime is in minutes (0-1440), convert to hours
-                return time.CurrentTime / 60f;
+                return time.CurrentTime / 60f; // CurrentTime is in minutes (0-1440)
             }
             catch
             {
@@ -54,9 +34,6 @@ namespace SewerMenu.Features.World
             }
         }
 
-        /// <summary>
-        /// Gets the current time in minutes (0-1440).
-        /// </summary>
         public int GetCurrentTimeMinutes()
         {
             var time = GameTypes.Time;
@@ -72,9 +49,6 @@ namespace SewerMenu.Features.World
             }
         }
 
-        /// <summary>
-        /// Gets the current day number (elapsed days).
-        /// </summary>
         public int GetCurrentDay()
         {
             var time = GameTypes.Time;
@@ -90,9 +64,6 @@ namespace SewerMenu.Features.World
             }
         }
 
-        /// <summary>
-        /// Gets the current day of the week.
-        /// </summary>
         public string GetDayOfWeek()
         {
             var time = GameTypes.Time;
@@ -108,9 +79,6 @@ namespace SewerMenu.Features.World
             }
         }
 
-        /// <summary>
-        /// Checks if it's currently night.
-        /// </summary>
         public bool IsNight()
         {
             var time = GameTypes.Time;
@@ -126,9 +94,6 @@ namespace SewerMenu.Features.World
             }
         }
 
-        /// <summary>
-        /// Sets the time of day (0-24 hours).
-        /// </summary>
         public void SetTime(float hours)
         {
             SafeExecute(() =>
@@ -140,19 +105,13 @@ namespace SewerMenu.Features.World
                     return;
                 }
 
-                // Clamp time to valid range and convert to minutes
                 hours = Mathf.Clamp(hours, 0f, 24f);
                 int minutes = Mathf.RoundToInt(hours * 60f);
-                
-                // SetTime(int time, bool local)
                 time.SetTime(minutes, false);
                 SewerLogger.Success($"Set time to {FormatTime(hours)}");
             }, "setting time");
         }
 
-        /// <summary>
-        /// Sets the time in minutes (0-1440).
-        /// </summary>
         public void SetTimeMinutes(int minutes)
         {
             SafeExecute(() =>
@@ -170,9 +129,6 @@ namespace SewerMenu.Features.World
             }, "setting time");
         }
 
-        /// <summary>
-        /// Advances time by the specified hours.
-        /// </summary>
         public void AdvanceTime(float hours)
         {
             var currentTime = GetCurrentTime();
@@ -180,29 +136,11 @@ namespace SewerMenu.Features.World
             SetTime(newTime);
         }
 
-        /// <summary>
-        /// Sets time to morning (6:00).
-        /// </summary>
         public void SetMorning() => SetTime(6f);
-
-        /// <summary>
-        /// Sets time to noon (12:00).
-        /// </summary>
         public void SetNoon() => SetTime(12f);
-
-        /// <summary>
-        /// Sets time to evening (18:00).
-        /// </summary>
         public void SetEvening() => SetTime(18f);
-
-        /// <summary>
-        /// Sets time to midnight (0:00).
-        /// </summary>
         public void SetMidnight() => SetTime(0f);
 
-        /// <summary>
-        /// Skips to the next day.
-        /// </summary>
         public void SkipDay()
         {
             SafeExecute(() =>
@@ -223,9 +161,6 @@ namespace SewerMenu.Features.World
             }, "skipping day");
         }
 
-        /// <summary>
-        /// Gets the time progression multiplier.
-        /// </summary>
         public float GetTimeMultiplier()
         {
             var time = GameTypes.Time;
@@ -241,9 +176,6 @@ namespace SewerMenu.Features.World
             }
         }
 
-        /// <summary>
-        /// Sets the time progression multiplier.
-        /// </summary>
         public void SetTimeMultiplier(float multiplier)
         {
             SafeExecute(() =>
@@ -263,9 +195,6 @@ namespace SewerMenu.Features.World
             }, "setting time multiplier");
         }
 
-        /// <summary>
-        /// Freezes or unfreezes time.
-        /// </summary>
         public void SetTimeFrozen(bool frozen)
         {
             SafeExecute(() =>
@@ -296,9 +225,6 @@ namespace SewerMenu.Features.World
             }, frozen ? "freezing time" : "unfreezing time");
         }
 
-        /// <summary>
-        /// Formats time as HH:MM string.
-        /// </summary>
         public static string FormatTime(float hours)
         {
             int h = Mathf.FloorToInt(hours);

@@ -12,9 +12,6 @@ using Il2CppScheduleOne.ItemFramework;
 
 namespace SewerMenu.Features.Misc
 {
-    /// <summary>
-    /// Draws labels and boxes for entities through walls using actual game types.
-    /// </summary>
     public class ESP : FeatureBase
     {
         public override string Id => "esp";

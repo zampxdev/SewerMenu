@@ -6,10 +6,7 @@ using Il2CppScheduleOne.PlayerScripts;
 
 namespace SewerMenu.Features.Misc
 {
-    /// <summary>
-    /// Detaches the camera for free movement.
-    /// Works by disabling the PlayerCamera component and controlling Camera.main directly.
-    /// </summary>
+    // Disables PlayerCamera component and controls Camera.main directly
     public class Freecam : FeatureBase
     {
         public override string Id => "freecam";
@@ -155,9 +152,6 @@ namespace SewerMenu.Features.Misc
             }
         }
 
-        /// <summary>
-        /// Teleports the freecam to the player's position.
-        /// </summary>
         public void TeleportToPlayer()
         {
             SafeExecute(() =>

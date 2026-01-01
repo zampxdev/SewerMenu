@@ -7,12 +7,6 @@ using System.Collections.Generic;
 
 namespace SewerMenu.Features.Items
 {
-    /// <summary>
-    /// Modifies the maximum stack size for items.
-    /// Uses direct IL2CPP access via GameTypes.GetAllItemDefinitions().
-    /// 
-    /// ItemDefinition.StackLimit property controls max stack size.
-    /// </summary>
     public class StackSizeModifier : FeatureBase
     {
         public override string Id => "stacksizemodifier";
@@ -39,9 +33,6 @@ namespace SewerMenu.Features.Items
             SewerLogger.Debug("StackSizeModifier disabled - restored original stack sizes");
         }
 
-        /// <summary>
-        /// Applies the stack size modifications to all items.
-        /// </summary>
         public void ApplyStackSizes()
         {
             SafeExecute(() =>
@@ -92,9 +83,6 @@ namespace SewerMenu.Features.Items
             }, "applying stack sizes");
         }
 
-        /// <summary>
-        /// Restores original stack sizes.
-        /// </summary>
         public void RestoreStackSizes()
         {
             if (!_hasStoredOriginals || _originalStackSizes.Count == 0)
@@ -130,9 +118,6 @@ namespace SewerMenu.Features.Items
             }, "restoring stack sizes");
         }
 
-        /// <summary>
-        /// Sets all items to a specific stack size.
-        /// </summary>
         public void SetAllStackSizes(int size)
         {
             SafeExecute(() =>

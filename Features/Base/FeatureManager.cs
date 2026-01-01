@@ -6,10 +6,6 @@ using SewerMenu.Core.Logging;
 
 namespace SewerMenu.Features.Base
 {
-    /// <summary>
-    /// Central manager for all SewerMenu features.
-    /// Handles registration, lifecycle, and hotkey processing.
-    /// </summary>
     public class FeatureManager
     {
         #region Singleton
@@ -31,28 +27,16 @@ namespace SewerMenu.Features.Base
         
         #region Properties
         
-        /// <summary>
-        /// Gets all registered features.
-        /// </summary>
         public IReadOnlyCollection<IFeature> AllFeatures => _features.Values;
         
-        /// <summary>
-        /// Gets the count of registered features.
-        /// </summary>
         public int FeatureCount => _features.Count;
         
-        /// <summary>
-        /// Gets the count of enabled features.
-        /// </summary>
         public int EnabledCount => _features.Values.Count(f => f.IsEnabled);
         
         #endregion
         
         #region Initialization
         
-        /// <summary>
-        /// Initializes the feature manager and registers all features.
-        /// </summary>
         public void Initialize()
         {
             if (_initialized)
@@ -63,28 +47,21 @@ namespace SewerMenu.Features.Base
             
             SewerLogger.Info("Initializing FeatureManager...");
             
-            // Initialize category dictionary
             foreach (FeatureCategory category in Enum.GetValues(typeof(FeatureCategory)))
             {
                 _featuresByCategory[category] = new List<IFeature>();
             }
             
-            // Register all features
             RegisterAllFeatures();
             
-            // Load hotkeys from config
             LoadHotkeysFromConfig();
             
             _initialized = true;
             SewerLogger.Success($"FeatureManager initialized with {FeatureCount} features");
         }
         
-        /// <summary>
-        /// Registers all features. Called during initialization.
-        /// </summary>
         private void RegisterAllFeatures()
         {
-            // Player Features
             RegisterFeature(new Player.GodMode());
             RegisterFeature(new Player.InfiniteStamina());
             RegisterFeature(new Player.SprintSpeed());
@@ -94,31 +71,26 @@ namespace SewerMenu.Features.Base
             RegisterFeature(new Player.Teleport());
             RegisterFeature(new Player.HealthEnergy());
             
-            // Economy Features
             RegisterFeature(new Economy.MoneyEditor());
             RegisterFeature(new Economy.XPEditor());
             RegisterFeature(new Economy.UnlockProducts());
             RegisterFeature(new Economy.FreePurchases());
             
-            // Item Features
             RegisterFeature(new Items.ItemSpawner());
             RegisterFeature(new Items.StackSizeModifier());
             RegisterFeature(new Items.InfiniteItems());
             RegisterFeature(new Items.QualityOverride());
             RegisterFeature(new Items.InstantGrow());
             
-            // World Features
             RegisterFeature(new World.TimeController());
             RegisterFeature(new World.PoliceDisable());
             RegisterFeature(new World.NeverWanted());
             RegisterFeature(new World.UnlockProperties());
             RegisterFeature(new World.NPCFreeze());
             
-            // Vehicle Features
             RegisterFeature(new Vehicles.VehicleSpawner());
             RegisterFeature(new Vehicles.VehicleUtilities());
             
-            // Misc Features
             RegisterFeature(new Misc.Freecam());
             RegisterFeature(new Misc.ESP());
             RegisterFeature(new Misc.DebugOverlay());
@@ -128,9 +100,6 @@ namespace SewerMenu.Features.Base
         
         #region Registration
         
-        /// <summary>
-        /// Registers a feature with the manager.
-        /// </summary>
         public void RegisterFeature(IFeature feature)
         {
             if (feature == null)
@@ -159,9 +128,6 @@ namespace SewerMenu.Features.Base
             }
         }
         
-        /// <summary>
-        /// Unregisters a feature from the manager.
-        /// </summary>
         public void UnregisterFeature(string featureId)
         {
             if (!_features.TryGetValue(featureId, out var feature))
@@ -188,26 +154,17 @@ namespace SewerMenu.Features.Base
         
         #region Retrieval
         
-        /// <summary>
-        /// Gets a feature by its ID.
-        /// </summary>
         public IFeature GetFeature(string featureId)
         {
             _features.TryGetValue(featureId, out var feature);
             return feature;
         }
         
-        /// <summary>
-        /// Gets a feature by its ID, cast to the specified type.
-        /// </summary>
         public T GetFeature<T>(string featureId) where T : class, IFeature
         {
             return GetFeature(featureId) as T;
         }
         
-        /// <summary>
-        /// Gets all features in a category.
-        /// </summary>
         public IReadOnlyList<IFeature> GetFeaturesByCategory(FeatureCategory category)
         {
             return _featuresByCategory.TryGetValue(category, out var features) 
@@ -215,9 +172,6 @@ namespace SewerMenu.Features.Base
                 : new List<IFeature>();
         }
         
-        /// <summary>
-        /// Gets all enabled features.
-        /// </summary>
         public IEnumerable<IFeature> GetEnabledFeatures()
         {
             return _features.Values.Where(f => f.IsEnabled);
@@ -227,15 +181,10 @@ namespace SewerMenu.Features.Base
         
         #region Lifecycle
         
-        /// <summary>
-        /// Called every frame. Updates all enabled features.
-        /// </summary>
         public void Update()
         {
-            // Process hotkeys
             ProcessHotkeys();
             
-            // Update enabled features
             foreach (var feature in _features.Values)
             {
                 if (feature.IsEnabled)
@@ -252,9 +201,6 @@ namespace SewerMenu.Features.Base
             }
         }
         
-        /// <summary>
-        /// Called every fixed update. Updates physics-related features.
-        /// </summary>
         public void FixedUpdate()
         {
             foreach (var feature in _features.Values)
@@ -273,9 +219,6 @@ namespace SewerMenu.Features.Base
             }
         }
         
-        /// <summary>
-        /// Called during OnGUI. Renders feature-specific UI.
-        /// </summary>
         public void OnGUI()
         {
             foreach (var feature in _features.Values)
@@ -294,9 +237,6 @@ namespace SewerMenu.Features.Base
             }
         }
         
-        /// <summary>
-        /// Shuts down the feature manager and all features.
-        /// </summary>
         public void Shutdown()
         {
             SewerLogger.Info("Shutting down FeatureManager...");
@@ -327,9 +267,6 @@ namespace SewerMenu.Features.Base
         
         #region Hotkeys
         
-        /// <summary>
-        /// Loads hotkeys from configuration and applies them to features.
-        /// </summary>
         private void LoadHotkeysFromConfig()
         {
             try
@@ -350,7 +287,6 @@ namespace SewerMenu.Features.Base
                     }
                 }
                 
-                // Set default hotkeys for common features if not already set
                 SetDefaultHotkeys();
             }
             catch (Exception ex)
@@ -359,12 +295,8 @@ namespace SewerMenu.Features.Base
             }
         }
         
-        /// <summary>
-        /// Sets default hotkeys for common features if they don't have one.
-        /// </summary>
         private void SetDefaultHotkeys()
         {
-            // Default hotkey mappings
             var defaults = new System.Collections.Generic.Dictionary<string, KeyCode>
             {
                 { "godmode", KeyCode.F1 },
@@ -387,9 +319,6 @@ namespace SewerMenu.Features.Base
             }
         }
         
-        /// <summary>
-        /// Processes hotkey inputs for all features.
-        /// </summary>
         private void ProcessHotkeys()
         {
             foreach (var feature in _features.Values)
@@ -408,9 +337,6 @@ namespace SewerMenu.Features.Base
             }
         }
         
-        /// <summary>
-        /// Sets a hotkey for a feature.
-        /// </summary>
         public void SetHotkey(string featureId, KeyCode? hotkey)
         {
             var feature = GetFeature(featureId);
@@ -425,9 +351,6 @@ namespace SewerMenu.Features.Base
         
         #region Bulk Operations
         
-        /// <summary>
-        /// Disables all features.
-        /// </summary>
         public void DisableAll()
         {
             foreach (var feature in _features.Values)
@@ -440,9 +363,6 @@ namespace SewerMenu.Features.Base
             SewerLogger.Info("All features disabled");
         }
         
-        /// <summary>
-        /// Disables all features in a category.
-        /// </summary>
         public void DisableCategory(FeatureCategory category)
         {
             foreach (var feature in GetFeaturesByCategory(category))

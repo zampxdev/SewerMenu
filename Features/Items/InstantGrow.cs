@@ -5,9 +5,6 @@ using Il2CppScheduleOne.Growing;
 
 namespace SewerMenu.Features.Items
 {
-    /// <summary>
-    /// Instantly completes growth for all plants and mushroom colonies.
-    /// </summary>
     public class InstantGrow : FeatureBase
     {
         public override string Id => "instantgrow";
@@ -16,16 +13,12 @@ namespace SewerMenu.Features.Items
         public override FeatureCategory Category => FeatureCategory.Items;
         public override bool IsToggleable => false;
 
-        /// <summary>
-        /// Completes growth for all plants and mushroom colonies.
-        /// </summary>
         public void GrowAll()
         {
             SafeExecute(() =>
             {
                 int grownCount = 0;
 
-                // Grow all Plants
                 var plants = Object.FindObjectsOfType<Plant>();
                 if (plants != null)
                 {
@@ -44,7 +37,6 @@ namespace SewerMenu.Features.Items
                     }
                 }
 
-                // Grow all ShroomColonies (mushrooms)
                 var colonies = Object.FindObjectsOfType<ShroomColony>();
                 if (colonies != null)
                 {
@@ -71,9 +63,6 @@ namespace SewerMenu.Features.Items
             }, "instant growing plants");
         }
 
-        /// <summary>
-        /// Grows a specific plant to full growth.
-        /// </summary>
         public void GrowPlant(Plant plant)
         {
             if (plant == null) return;
@@ -92,9 +81,6 @@ namespace SewerMenu.Features.Items
             }, "growing plant");
         }
 
-        /// <summary>
-        /// Grows a specific mushroom colony to full growth.
-        /// </summary>
         public void GrowColony(ShroomColony colony)
         {
             if (colony == null) return;

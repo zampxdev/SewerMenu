@@ -3,18 +3,14 @@ using SewerMenu.Core.Logging;
 
 namespace SewerMenu.UI
 {
-    /// <summary>
-    /// Modern UI styling system for SewerMenu.
-    /// Handles IL2CPP-safe rendering with custom textures and colors.
-    /// </summary>
+    // UI styling system with IL2CPP-safe rendering (textures stored statically to prevent GC)
     public static class SewerSkin
     {
-        #region Static Cache (Prevents GC)
+        #region Static Cache
         
         private static bool _initialized = false;
         private static GUISkin _customSkin;
         
-        // Textures - stored statically to prevent GC
         private static Texture2D _windowBackground;
         private static Texture2D _buttonNormal;
         private static Texture2D _buttonHover;
@@ -28,35 +24,32 @@ namespace SewerMenu.UI
         private static Texture2D _solidWhite;
         private static Texture2D _gradientHeader;
         
-        // Modern toggle textures (pill-style switch)
         private static Texture2D _togglePillOn;
         private static Texture2D _togglePillOff;
         private static Texture2D _toggleKnob;
         
-        // Enhanced slider textures
         private static Texture2D _sliderTrackBg;
         private static Texture2D _sliderTrackFill;
         private static Texture2D _sliderKnob;
         
-        // Colors - Modern "Midnight" theme inspired by GitHub Dark
-        public static readonly Color AccentColor = new Color(0.345f, 0.651f, 1.0f, 1f);      // #58A6FF - Bright blue
-        public static readonly Color AccentDark = new Color(0.22f, 0.545f, 0.992f, 1f);      // #388BFD - Darker blue
-        public static readonly Color AccentGlow = new Color(0.475f, 0.753f, 1.0f, 1f);       // #79C0FF - Light blue glow
-        public static readonly Color BackgroundColor = new Color(0.051f, 0.067f, 0.09f, 0.98f);  // #0D1117 - Very dark
-        public static readonly Color PanelColor = new Color(0.086f, 0.106f, 0.133f, 1f);     // #161B22 - Panel bg
-        public static readonly Color PanelLightColor = new Color(0.11f, 0.129f, 0.157f, 1f); // #1C2128 - Lighter panel
-        public static readonly Color ButtonColor = new Color(0.129f, 0.157f, 0.188f, 1f);    // #212830 - Button normal
-        public static readonly Color ButtonHoverColor = new Color(0.18f, 0.212f, 0.251f, 1f);// #2E3640 - Button hover
-        public static readonly Color ButtonActiveColor = new Color(0.22f, 0.545f, 0.992f, 1f);// #388BFD - Button active
-        public static readonly Color TextColor = new Color(0.902f, 0.929f, 0.953f, 1f);      // #E6EDF3 - Off-white
-        public static readonly Color TextMutedColor = new Color(0.49f, 0.522f, 0.565f, 1f);  // #7D8590 - Gray
-        public static readonly Color SuccessColor = new Color(0.247f, 0.725f, 0.314f, 1f);   // #3FB950 - Green
-        public static readonly Color WarningColor = new Color(0.824f, 0.6f, 0.133f, 1f);     // #D29922 - Amber
-        public static readonly Color ErrorColor = new Color(0.973f, 0.318f, 0.286f, 1f);     // #F85149 - Red
-        public static readonly Color BorderColor = new Color(0.188f, 0.212f, 0.239f, 1f);    // #30363D - Subtle border
-        public static readonly Color BorderLightColor = new Color(0.282f, 0.31f, 0.345f, 1f);// #484F58 - Light border
+        // Colors - "Midnight" theme
+        public static readonly Color AccentColor = new Color(0.345f, 0.651f, 1.0f, 1f);
+        public static readonly Color AccentDark = new Color(0.22f, 0.545f, 0.992f, 1f);
+        public static readonly Color AccentGlow = new Color(0.475f, 0.753f, 1.0f, 1f);
+        public static readonly Color BackgroundColor = new Color(0.051f, 0.067f, 0.09f, 0.98f);
+        public static readonly Color PanelColor = new Color(0.086f, 0.106f, 0.133f, 1f);
+        public static readonly Color PanelLightColor = new Color(0.11f, 0.129f, 0.157f, 1f);
+        public static readonly Color ButtonColor = new Color(0.129f, 0.157f, 0.188f, 1f);
+        public static readonly Color ButtonHoverColor = new Color(0.18f, 0.212f, 0.251f, 1f);
+        public static readonly Color ButtonActiveColor = new Color(0.22f, 0.545f, 0.992f, 1f);
+        public static readonly Color TextColor = new Color(0.902f, 0.929f, 0.953f, 1f);
+        public static readonly Color TextMutedColor = new Color(0.49f, 0.522f, 0.565f, 1f);
+        public static readonly Color SuccessColor = new Color(0.247f, 0.725f, 0.314f, 1f);
+        public static readonly Color WarningColor = new Color(0.824f, 0.6f, 0.133f, 1f);
+        public static readonly Color ErrorColor = new Color(0.973f, 0.318f, 0.286f, 1f);
+        public static readonly Color BorderColor = new Color(0.188f, 0.212f, 0.239f, 1f);
+        public static readonly Color BorderLightColor = new Color(0.282f, 0.31f, 0.345f, 1f);
         
-        // Cached GUIStyles
         private static GUIStyle _headerStyle;
         private static GUIStyle _sectionStyle;
         private static GUIStyle _labelStyle;
@@ -89,42 +82,23 @@ namespace SewerMenu.UI
         
         private static void CreateTextures()
         {
-            // Solid white for drawing colored rectangles
             _solidWhite = MakeTexture(2, 2, Color.white);
-            
-            // Window background - very dark with slight transparency
             _windowBackground = MakeTexture(2, 2, BackgroundColor);
-            
-            // Button states - cleaner look with softer borders
             _buttonNormal = MakeRoundedTexture(64, 28, ButtonColor, new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.5f));
             _buttonHover = MakeRoundedTexture(64, 28, ButtonHoverColor, BorderLightColor);
             _buttonActive = MakeRoundedTexture(64, 28, ButtonActiveColor, AccentColor);
-            
-            // Box background - subtle panel with softer border
             _boxBackground = MakeRoundedTexture(64, 64, PanelColor, new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.4f));
-            
-            // Toggle textures - modern style
             _toggleOn = MakeToggleTexture(20, 20, true);
             _toggleOff = MakeToggleTexture(20, 20, false);
-            
-            // Slider - cleaner
             _sliderBackground = MakeTexture(8, 8, new Color(0.1f, 0.12f, 0.15f, 1f));
             _sliderThumb = MakeRoundedTexture(16, 22, AccentColor, AccentDark);
-            
-            // Text field - darker input
             _textFieldBackground = MakeRoundedTexture(64, 26, new Color(0.04f, 0.05f, 0.065f, 1f), BorderColor);
-            
-            // Gradient for headers
             _gradientHeader = MakeGradientTexture(1, 32, 
                 new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.15f),
                 new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.0f));
-            
-            // Modern toggle (pill-style switch) - 44x22 pixels
             _togglePillOn = MakePillTexture(44, 22, AccentColor, AccentDark);
             _togglePillOff = MakePillTexture(44, 22, new Color(0.15f, 0.17f, 0.2f, 1f), new Color(0.22f, 0.24f, 0.28f, 1f));
             _toggleKnob = MakeCircleTexture(18, Color.white);
-            
-            // Enhanced slider
             _sliderTrackBg = MakePillTexture(100, 8, new Color(0.1f, 0.12f, 0.15f, 1f), new Color(0.15f, 0.17f, 0.2f, 1f));
             _sliderTrackFill = MakePillTexture(100, 8, AccentColor, AccentDark);
             _sliderKnob = MakeCircleTexture(16, Color.white);
@@ -205,9 +179,6 @@ namespace SewerMenu.UI
             return texture;
         }
         
-        /// <summary>
-        /// Creates a pill/capsule shaped texture (rounded ends).
-        /// </summary>
         private static Texture2D MakePillTexture(int width, int height, Color fillColor, Color borderColor)
         {
             var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
@@ -223,34 +194,29 @@ namespace SewerMenu.UI
                 {
                     float dist = float.MaxValue;
                     
-                    // Left cap
                     if (x < radius)
                     {
                         float dx = x - radius;
                         float dy = y - radius;
                         dist = Mathf.Sqrt(dx * dx + dy * dy);
                     }
-                    // Right cap
                     else if (x >= width - radius)
                     {
                         float dx = x - (width - radius - 1);
                         float dy = y - radius;
                         dist = Mathf.Sqrt(dx * dx + dy * dy);
                     }
-                    // Middle section
                     else
                     {
                         dist = Mathf.Abs(y - radius);
                     }
                     
-                    // Anti-aliased edge
                     if (dist > radius)
                     {
                         pixels[y * width + x] = Color.clear;
                     }
                     else if (dist > radius - 1.5f)
                     {
-                        // Border with anti-aliasing
                         float alpha = Mathf.Clamp01(radius - dist);
                         pixels[y * width + x] = new Color(borderColor.r, borderColor.g, borderColor.b, alpha);
                     }
@@ -270,9 +236,6 @@ namespace SewerMenu.UI
             return texture;
         }
         
-        /// <summary>
-        /// Creates a circular texture with anti-aliasing.
-        /// </summary>
         private static Texture2D MakeCircleTexture(int diameter, Color color)
         {
             var texture = new Texture2D(diameter, diameter, TextureFormat.RGBA32, false);
@@ -297,13 +260,11 @@ namespace SewerMenu.UI
                     }
                     else if (dist > radius - 1.2f)
                     {
-                        // Anti-aliased edge
                         float alpha = Mathf.Clamp01(radius - dist);
                         pixels[y * diameter + x] = new Color(color.r, color.g, color.b, alpha);
                     }
                     else
                     {
-                        // Add subtle gradient for depth
                         float gradientFactor = 1f - (dist / radius) * 0.15f;
                         pixels[y * diameter + x] = new Color(
                             Mathf.Min(1f, color.r * gradientFactor + 0.05f),
@@ -325,7 +286,6 @@ namespace SewerMenu.UI
             var texture = new Texture2D(size, height, TextureFormat.RGBA32, false);
             texture.hideFlags = HideFlags.HideAndDontSave;
             
-            // Modern checkbox style
             Color bgColor = isOn ? AccentColor : new Color(0.12f, 0.14f, 0.17f, 1f);
             Color borderCol = isOn ? AccentDark : BorderColor;
             Color checkColor = isOn ? new Color(1f, 1f, 1f, 1f) : Color.clear;
@@ -337,7 +297,6 @@ namespace SewerMenu.UI
             {
                 for (int x = 0; x < size; x++)
                 {
-                    // Rounded corners
                     bool isCorner = false;
                     if ((x < radius && y < radius) || (x < radius && y >= height - radius) ||
                         (x >= size - radius && y < radius) || (x >= size - radius && y >= height - radius))
@@ -375,14 +334,12 @@ namespace SewerMenu.UI
             if (!_initialized) Initialize();
             if (!_stylesInitialized) CreateStyles();
             
-            // Store original skin settings
             GUI.backgroundColor = Color.white;
             GUI.contentColor = TextColor;
         }
         
         private static void CreateStyles()
         {
-            // Button style - modern dark with subtle border
             _buttonStyle = new GUIStyle(GUI.skin.button)
             {
                 fontSize = 12,
@@ -400,7 +357,6 @@ namespace SewerMenu.UI
             _buttonStyle.focused.background = _buttonHover;
             _buttonStyle.focused.textColor = TextColor;
             
-            // Accent button style - blue background
             _buttonAccentStyle = new GUIStyle(_buttonStyle);
             _buttonAccentStyle.normal.background = _buttonActive;
             _buttonAccentStyle.normal.textColor = new Color(0.02f, 0.04f, 0.06f, 1f);
@@ -411,7 +367,6 @@ namespace SewerMenu.UI
             _buttonAccentStyle.active.background.hideFlags = HideFlags.HideAndDontSave;
             _buttonAccentStyle.active.textColor = TextColor;
             
-            // Danger button style - red background
             _buttonDangerStyle = new GUIStyle(_buttonStyle);
             _buttonDangerStyle.normal.background = MakeRoundedTexture(64, 28, new Color(ErrorColor.r * 0.8f, ErrorColor.g * 0.8f, ErrorColor.b * 0.8f, 1f), ErrorColor);
             _buttonDangerStyle.normal.background.hideFlags = HideFlags.HideAndDontSave;
@@ -436,9 +391,6 @@ namespace SewerMenu.UI
         
         #region Custom Drawing Methods
         
-        /// <summary>
-        /// Draws a styled header label.
-        /// </summary>
         public static void DrawHeader(string text)
         {
             var oldColor = GUI.contentColor;
@@ -448,36 +400,28 @@ namespace SewerMenu.UI
             GUILayout.Space(5);
         }
         
-        /// <summary>
-        /// Draws a section title with a subtle background.
-        /// </summary>
         public static void DrawSection(string title)
         {
             GUILayout.Space(14);
             
-            // Reserve space for the entire section header
             Rect headerRect = GUILayoutUtility.GetRect(0, 26, GUILayout.ExpandWidth(true));
             
-            // Draw subtle gradient background
             if (_gradientHeader != null)
             {
                 GUI.DrawTexture(headerRect, _gradientHeader, ScaleMode.StretchToFill);
             }
             
-            // Draw accent bar on left (3px wide, full height)
             var oldColor = GUI.color;
             GUI.color = AccentColor;
             GUI.DrawTexture(new Rect(headerRect.x, headerRect.y + 3, 3, headerRect.height - 6), _solidWhite ?? Texture2D.whiteTexture);
             GUI.color = oldColor;
             
-            // Draw section title
             oldColor = GUI.contentColor;
             GUI.contentColor = TextColor;
             Rect labelRect = new Rect(headerRect.x + 12, headerRect.y + 3, headerRect.width - 12, headerRect.height - 6);
             GUI.Label(labelRect, title.ToUpper());
             GUI.contentColor = oldColor;
             
-            // Draw bottom separator line (1px)
             GUI.color = new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.6f);
             GUI.DrawTexture(new Rect(headerRect.x, headerRect.y + headerRect.height - 1, headerRect.width, 1), _solidWhite ?? Texture2D.whiteTexture);
             GUI.color = Color.white;
@@ -485,29 +429,21 @@ namespace SewerMenu.UI
             GUILayout.Space(10);
         }
         
-        /// <summary>
-        /// Draws a modern pill-style toggle switch.
-        /// </summary>
         public static bool DrawToggle(string label, bool value, string description = null)
         {
-            // Get rect for the entire row
             Rect rowRect = GUILayoutUtility.GetRect(0, 32, GUILayout.ExpandWidth(true));
             
-            // Draw subtle background with left accent when enabled
             var oldColor = GUI.color;
             if (value)
             {
-                // Subtle accent tint background
                 GUI.color = new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.04f);
                 GUI.DrawTexture(new Rect(rowRect.x, rowRect.y + 1, rowRect.width, rowRect.height - 2), _solidWhite ?? Texture2D.whiteTexture);
                 
-                // Left accent bar
                 GUI.color = AccentColor;
                 GUI.DrawTexture(new Rect(rowRect.x, rowRect.y + 4, 3, rowRect.height - 8), _solidWhite ?? Texture2D.whiteTexture);
             }
             GUI.color = oldColor;
             
-            // Toggle switch area - pill style (44x22)
             const float toggleWidth = 44f;
             const float toggleHeight = 22f;
             const float knobSize = 18f;
@@ -515,10 +451,9 @@ namespace SewerMenu.UI
             
             Rect toggleRect = new Rect(rowRect.x + 12, rowRect.y + (rowRect.height - toggleHeight) / 2f, toggleWidth, toggleHeight);
             
-            // Invisible toggle for click detection (covers the whole toggle) - use GUIStyle.none to hide default checkbox
+            // GUIStyle.none hides the default checkbox visual
             bool newValue = GUI.Toggle(new Rect(toggleRect.x - 2, toggleRect.y - 2, toggleWidth + 4, toggleHeight + 4), value, "", GUIStyle.none);
             
-            // Draw pill background
             oldColor = GUI.color;
             GUI.color = Color.white;
             if (value)
@@ -542,10 +477,9 @@ namespace SewerMenu.UI
                 }
             }
             
-            // Draw knob (circle) - slides left/right based on state
             float knobX = value 
-                ? toggleRect.x + toggleWidth - knobSize - knobPadding  // Right position (ON)
-                : toggleRect.x + knobPadding;                           // Left position (OFF)
+                ? toggleRect.x + toggleWidth - knobSize - knobPadding
+                : toggleRect.x + knobPadding;
             float knobY = toggleRect.y + (toggleHeight - knobSize) / 2f;
             
             Rect knobRect = new Rect(knobX, knobY, knobSize, knobSize);

@@ -5,18 +5,6 @@ using SewerMenu.Utils;
 
 namespace SewerMenu.Features.Economy
 {
-    /// <summary>
-    /// Allows editing the player's money/balance.
-    /// Uses direct IL2CPP access via GameTypes.Money.
-    /// 
-    /// Key properties:
-    /// - cashBalance (get only) - use ChangeCashBalance() to modify
-    /// - onlineBalance (get/set)
-    /// 
-    /// Key methods:
-    /// - ChangeCashBalance(float change, bool visualizeChange, bool playCashSound)
-    /// - CreateOnlineTransaction(string name, float unitAmount, float quantity, ...)
-    /// </summary>
     public class MoneyEditor : FeatureBase
     {
         public override string Id => "moneyeditor";
@@ -28,9 +16,6 @@ namespace SewerMenu.Features.Economy
         public float TargetCash { get; set; } = 100000f;
         public float TargetOnlineBalance { get; set; } = 1000000f;
 
-        /// <summary>
-        /// Gets the current cash amount.
-        /// </summary>
         public float GetCurrentCash()
         {
             var money = GameTypes.Money;
@@ -46,9 +31,6 @@ namespace SewerMenu.Features.Economy
             }
         }
 
-        /// <summary>
-        /// Gets the current online/bank balance.
-        /// </summary>
         public float GetOnlineBalance()
         {
             var money = GameTypes.Money;
@@ -64,10 +46,7 @@ namespace SewerMenu.Features.Economy
             }
         }
 
-        /// <summary>
-        /// Sets the player's cash amount by adding the difference.
-        /// Note: cashBalance is read-only, so we use ChangeCashBalance() method.
-        /// </summary>
+        // cashBalance is read-only, so we use ChangeCashBalance() to modify
         public void SetCash(float amount)
         {
             SafeExecute(() =>
@@ -102,9 +81,6 @@ namespace SewerMenu.Features.Economy
             }, "setting cash");
         }
 
-        /// <summary>
-        /// Sets the player's online/bank balance.
-        /// </summary>
         public void SetOnlineBalance(float amount)
         {
             SafeExecute(() =>
@@ -123,10 +99,9 @@ namespace SewerMenu.Features.Economy
                     
                     if (Mathf.Abs(difference) > 0.01f)
                     {
-                        // Try CreateOnlineTransaction first (proper network sync)
+                        // CreateOnlineTransaction provides proper network sync
                         try
                         {
-                            // CreateOnlineTransaction(name, unitAmount, quantity, note)
                             money.CreateOnlineTransaction("Deposit", difference, 1f, "SewerMenu");
                             SewerLogger.Success($"Set online balance to ${amount:N0}");
                             return;
@@ -149,9 +124,6 @@ namespace SewerMenu.Features.Economy
             }, "setting online balance");
         }
 
-        /// <summary>
-        /// Adds money to cash.
-        /// </summary>
         public void AddCash(float amount)
         {
             SafeExecute(() =>
@@ -171,9 +143,6 @@ namespace SewerMenu.Features.Economy
             }, "adding cash");
         }
 
-        /// <summary>
-        /// Adds money to online balance.
-        /// </summary>
         public void AddOnlineBalance(float amount)
         {
             SafeExecute(() =>
@@ -183,10 +152,9 @@ namespace SewerMenu.Features.Economy
 
                 try
                 {
-                    // Try CreateOnlineTransaction first (proper network sync)
+                    // CreateOnlineTransaction provides proper network sync
                     try
                     {
-                        // CreateOnlineTransaction(name, unitAmount, quantity, note)
                         money.CreateOnlineTransaction("Deposit", amount, 1f, "SewerMenu");
                         SewerLogger.Success($"Added ${amount:N0} to online balance");
                         return;
@@ -204,9 +172,6 @@ namespace SewerMenu.Features.Economy
             }, "adding online balance");
         }
 
-        /// <summary>
-        /// Gets the player's net worth.
-        /// </summary>
         public float GetNetWorth()
         {
             var money = GameTypes.Money;
@@ -222,9 +187,6 @@ namespace SewerMenu.Features.Economy
             }
         }
 
-        /// <summary>
-        /// Gets lifetime earnings.
-        /// </summary>
         public float GetLifetimeEarnings()
         {
             var money = GameTypes.Money;

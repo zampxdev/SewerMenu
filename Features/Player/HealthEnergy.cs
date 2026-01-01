@@ -5,10 +5,6 @@ using SewerMenu.Utils;
 
 namespace SewerMenu.Features.Player
 {
-    /// <summary>
-    /// Provides health and energy manipulation features.
-    /// Includes infinite health, infinite energy, and manual controls.
-    /// </summary>
     public class HealthEnergy : FeatureBase
     {
         public override string Id => "healthenergy";
@@ -19,7 +15,6 @@ namespace SewerMenu.Features.Player
         private const float MaxHealth = 100f;
         private const float MaxEnergy = 100f;
 
-        // Feature toggles
         public bool InfiniteHealth { get; set; } = false;
         public bool InfiniteEnergy { get; set; } = false;
 
@@ -39,7 +34,6 @@ namespace SewerMenu.Features.Player
 
             SafeExecute(() =>
             {
-                // Handle infinite health
                 if (InfiniteHealth)
                 {
                     var health = GameTypes.Health;
@@ -56,7 +50,6 @@ namespace SewerMenu.Features.Player
                     }
                 }
 
-                // Handle infinite energy
                 if (InfiniteEnergy)
                 {
                     var energy = GameTypes.Energy;
@@ -75,9 +68,6 @@ namespace SewerMenu.Features.Player
             }, "updating health/energy");
         }
 
-        /// <summary>
-        /// Gets the current health value.
-        /// </summary>
         public float GetCurrentHealth()
         {
             try
@@ -90,9 +80,6 @@ namespace SewerMenu.Features.Player
             return 0f;
         }
 
-        /// <summary>
-        /// Gets the current energy value.
-        /// </summary>
         public float GetCurrentEnergy()
         {
             try
@@ -105,9 +92,6 @@ namespace SewerMenu.Features.Player
             return 0f;
         }
 
-        /// <summary>
-        /// Heals the player to full health.
-        /// </summary>
         public void HealToFull()
         {
             SafeExecute(() =>
@@ -125,9 +109,6 @@ namespace SewerMenu.Features.Player
             }, "healing to full");
         }
 
-        /// <summary>
-        /// Sets the player's health to a specific value.
-        /// </summary>
         public void SetHealth(float value)
         {
             SafeExecute(() =>
@@ -142,9 +123,6 @@ namespace SewerMenu.Features.Player
             }, "setting health");
         }
 
-        /// <summary>
-        /// Restores the player's energy to full.
-        /// </summary>
         public void RestoreEnergy()
         {
             SafeExecute(() =>
@@ -162,9 +140,6 @@ namespace SewerMenu.Features.Player
             }, "restoring energy");
         }
 
-        /// <summary>
-        /// Sets the player's energy to a specific value.
-        /// </summary>
         public void SetEnergy(float value)
         {
             SafeExecute(() =>
@@ -179,9 +154,6 @@ namespace SewerMenu.Features.Player
             }, "setting energy");
         }
 
-        /// <summary>
-        /// Checks if the player is alive.
-        /// </summary>
         public bool IsAlive()
         {
             try

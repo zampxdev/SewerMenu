@@ -6,9 +6,6 @@ using SewerMenu.Utils;
 
 namespace SewerMenu.Features.Player
 {
-    /// <summary>
-    /// Allows saving and teleporting to locations.
-    /// </summary>
     public class Teleport : FeatureBase
     {
         public override string Id => "teleport";

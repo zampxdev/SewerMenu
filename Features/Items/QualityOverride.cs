@@ -7,9 +7,6 @@ using Il2CppScheduleOne.ItemFramework;
 
 namespace SewerMenu.Features.Items
 {
-    /// <summary>
-    /// Changes the quality of the held product item.
-    /// </summary>
     public class QualityOverride : FeatureBase
     {
         public override string Id => "qualityoverride";

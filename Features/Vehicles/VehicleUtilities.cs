@@ -6,9 +6,6 @@ using Il2CppScheduleOne.Vehicles;
 
 namespace SewerMenu.Features.Vehicles
 {
-    /// <summary>
-    /// Vehicle utility functions: flip, repair, teleport to vehicles.
-    /// </summary>
     public class VehicleUtilities : FeatureBase
     {
         public override string Id => "vehicleutilities";
@@ -17,9 +14,6 @@ namespace SewerMenu.Features.Vehicles
         public override FeatureCategory Category => FeatureCategory.Vehicles;
         public override bool IsToggleable => false;
         
-        /// <summary>
-        /// Gets the current vehicle the player is in.
-        /// </summary>
         public LandVehicle GetCurrentVehicle()
         {
             try
@@ -32,17 +26,11 @@ namespace SewerMenu.Features.Vehicles
             return null;
         }
         
-        /// <summary>
-        /// Checks if the player is currently in a vehicle.
-        /// </summary>
         public bool IsInVehicle()
         {
             return GetCurrentVehicle() != null;
         }
         
-        /// <summary>
-        /// Gets all player-owned vehicles in the scene.
-        /// </summary>
         public List<LandVehicle> GetOwnedVehicles()
         {
             var result = new List<LandVehicle>();
@@ -66,9 +54,6 @@ namespace SewerMenu.Features.Vehicles
             return result;
         }
         
-        /// <summary>
-        /// Teleports the player to the specified vehicle.
-        /// </summary>
         public void TeleportToVehicle(LandVehicle vehicle)
         {
             if (vehicle == null) return;
@@ -78,7 +63,6 @@ namespace SewerMenu.Features.Vehicles
                 var playerTransform = GameTypes.PlayerTransform;
                 if (playerTransform == null) return;
                 
-                // Disable CharacterController temporarily
                 var cc = playerTransform.GetComponent<CharacterController>();
                 bool wasEnabled = false;
                 if (cc != null)
@@ -87,7 +71,6 @@ namespace SewerMenu.Features.Vehicles
                     cc.enabled = false;
                 }
                 
-                // Teleport next to the vehicle
                 Vector3 targetPos = vehicle.transform.position + vehicle.transform.right * 2f + Vector3.up * 0.5f;
                 playerTransform.position = targetPos;
                 
@@ -97,16 +80,12 @@ namespace SewerMenu.Features.Vehicles
             catch { }
         }
         
-        /// <summary>
-        /// Flips the vehicle upright and resets velocity.
-        /// </summary>
         public void FlipVehicle(LandVehicle vehicle)
         {
             if (vehicle == null) return;
             
             try
             {
-                // Reset velocity
                 var rb = vehicle.GetComponent<Rigidbody>();
                 if (rb != null)
                 {
@@ -114,7 +93,6 @@ namespace SewerMenu.Features.Vehicles
                     rb.angularVelocity = Vector3.zero;
                 }
                 
-                // Flip upright
                 var currentRot = vehicle.transform.rotation.eulerAngles;
                 vehicle.transform.rotation = Quaternion.Euler(0f, currentRot.y, 0f);
                 vehicle.transform.position += Vector3.up * 0.5f;
@@ -122,9 +100,6 @@ namespace SewerMenu.Features.Vehicles
             catch { }
         }
         
-        /// <summary>
-        /// Flips the current vehicle the player is in.
-        /// </summary>
         public void FlipCurrentVehicle()
         {
             var vehicle = GetCurrentVehicle();
@@ -136,7 +111,6 @@ namespace SewerMenu.Features.Vehicles
         
         public override void Execute()
         {
-            // Default action: flip current vehicle
             FlipCurrentVehicle();
         }
     }

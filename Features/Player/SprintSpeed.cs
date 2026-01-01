@@ -5,11 +5,6 @@ using SewerMenu.Utils;
 
 namespace SewerMenu.Features.Player
 {
-    /// <summary>
-    /// Modifies the player's movement speed multiplier.
-    /// Uses direct IL2CPP type access via GameTypes.
-    /// PlayerMovement has MoveSpeedMultiplier property.
-    /// </summary>
     public class SprintSpeed : FeatureBase
     {
         public override string Id => "sprintspeed";
@@ -79,9 +74,6 @@ namespace SewerMenu.Features.Player
             }, "updating sprint speed");
         }
 
-        /// <summary>
-        /// Resets the stored original speed (useful if game reloads).
-        /// </summary>
         public static void ResetOriginalSpeed()
         {
             _hasStoredOriginal = false;

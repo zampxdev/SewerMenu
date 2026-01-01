@@ -6,9 +6,6 @@ using SewerMenu.Core.Config;
 
 namespace SewerMenu.Core.Keybinds
 {
-    /// <summary>
-    /// Manages keybindings for the mod.
-    /// </summary>
     public class KeybindManager
     {
         #region Singleton
@@ -33,23 +30,14 @@ namespace SewerMenu.Core.Keybinds
         
         #region Properties
         
-        /// <summary>
-        /// Gets whether a keybind capture is in progress.
-        /// </summary>
         public bool IsCapturing => _isCapturing;
         
-        /// <summary>
-        /// Gets the ID of the keybind being captured.
-        /// </summary>
         public string CapturingFor => _capturingFor;
         
         #endregion
         
         #region Initialization
         
-        /// <summary>
-        /// Initializes the keybind manager.
-        /// </summary>
         public void Initialize()
         {
             if (_initialized)
@@ -58,25 +46,19 @@ namespace SewerMenu.Core.Keybinds
                 return;
             }
             
-            // Register default keybinds
             RegisterDefaultKeybinds();
             
             _initialized = true;
             SewerLogger.Debug("KeybindManager initialized");
         }
         
-        /// <summary>
-        /// Registers default keybinds.
-        /// </summary>
         private void RegisterDefaultKeybinds()
         {
-            // Menu toggle
             RegisterKeybind("menu_toggle", KeyCode.F8, () =>
             {
                 UI.MenuController.Instance.Toggle();
             });
             
-            // Quick disable all
             RegisterKeybind("disable_all", KeyCode.F9, () =>
             {
                 Features.Base.FeatureManager.Instance.DisableAll();
@@ -87,17 +69,11 @@ namespace SewerMenu.Core.Keybinds
         
         #region Registration
         
-        /// <summary>
-        /// Registers a keybind with an action.
-        /// </summary>
         public void RegisterKeybind(string id, KeyCode defaultKey, Action action)
         {
-            // Check if we have a saved keybind
             var config = ConfigManager.Instance.Config;
             if (config?.UI != null)
             {
-                // Try to load from config
-                // For now, use default
             }
             
             _keybinds[id] = defaultKey;
@@ -106,18 +82,12 @@ namespace SewerMenu.Core.Keybinds
             SewerLogger.Debug($"Registered keybind: {id} = {defaultKey}");
         }
         
-        /// <summary>
-        /// Unregisters a keybind.
-        /// </summary>
         public void UnregisterKeybind(string id)
         {
             _keybinds.Remove(id);
             _keybindActions.Remove(id);
         }
         
-        /// <summary>
-        /// Sets a keybind to a new key.
-        /// </summary>
         public void SetKeybind(string id, KeyCode key)
         {
             if (_keybinds.ContainsKey(id))
@@ -128,9 +98,6 @@ namespace SewerMenu.Core.Keybinds
             }
         }
         
-        /// <summary>
-        /// Gets the current key for a keybind.
-        /// </summary>
         public KeyCode? GetKeybind(string id)
         {
             return _keybinds.TryGetValue(id, out var key) ? key : (KeyCode?)null;
@@ -140,12 +107,8 @@ namespace SewerMenu.Core.Keybinds
         
         #region Update
         
-        /// <summary>
-        /// Processes keybind inputs. Call from Update.
-        /// </summary>
         public void Update()
         {
-            // Handle keybind capture mode
             if (_isCapturing)
             {
                 ProcessCapture();
@@ -154,12 +117,10 @@ namespace SewerMenu.Core.Keybinds
             
             bool menuVisible = UI.MenuController.Instance.IsVisible;
             
-            // Process registered keybinds
             foreach (var kvp in _keybinds)
             {
                 if (Input.GetKeyDown(kvp.Value))
                 {
-                    // Always allow menu toggle, skip others if menu is open
                     if (kvp.Key != "menu_toggle" && menuVisible)
                     {
                         continue;
@@ -184,9 +145,6 @@ namespace SewerMenu.Core.Keybinds
         
         #region Capture Mode
         
-        /// <summary>
-        /// Starts capturing a new keybind.
-        /// </summary>
         public void StartCapture(string keybindId, Action<KeyCode> callback)
         {
             _isCapturing = true;
@@ -196,9 +154,6 @@ namespace SewerMenu.Core.Keybinds
             SewerLogger.Debug($"Started keybind capture for: {keybindId}");
         }
         
-        /// <summary>
-        /// Cancels keybind capture.
-        /// </summary>
         public void CancelCapture()
         {
             _isCapturing = false;
@@ -208,22 +163,16 @@ namespace SewerMenu.Core.Keybinds
             SewerLogger.Debug("Keybind capture cancelled");
         }
         
-        /// <summary>
-        /// Processes keybind capture.
-        /// </summary>
         private void ProcessCapture()
         {
-            // Check for escape to cancel
             if (Input.GetKeyDown(KeyCode.Escape))
             {
                 CancelCapture();
                 return;
             }
             
-            // Check for any key press
             foreach (KeyCode key in Enum.GetValues(typeof(KeyCode)))
             {
-                // Skip mouse buttons and special keys
                 if (key == KeyCode.None || 
                     key == KeyCode.Escape ||
                     key.ToString().StartsWith("Mouse") ||
@@ -234,7 +183,6 @@ namespace SewerMenu.Core.Keybinds
                 
                 if (Input.GetKeyDown(key))
                 {
-                    // Found a key
                     var callback = _captureCallback;
                     var keybindId = _capturingFor;
                     
@@ -242,10 +190,8 @@ namespace SewerMenu.Core.Keybinds
                     _capturingFor = null;
                     _captureCallback = null;
                     
-                    // Set the keybind
                     SetKeybind(keybindId, key);
                     
-                    // Invoke callback
                     callback?.Invoke(key);
                     
                     SewerLogger.Debug($"Captured keybind: {keybindId} = {key}");
@@ -258,9 +204,6 @@ namespace SewerMenu.Core.Keybinds
         
         #region Helpers
         
-        /// <summary>
-        /// Gets a display string for a keybind.
-        /// </summary>
         public string GetKeybindDisplayString(string id)
         {
             if (_keybinds.TryGetValue(id, out var key))
@@ -270,14 +213,10 @@ namespace SewerMenu.Core.Keybinds
             return "None";
         }
         
-        /// <summary>
-        /// Formats a KeyCode for display.
-        /// </summary>
         public static string FormatKeyCode(KeyCode key)
         {
             string name = key.ToString();
             
-            // Clean up common names
             if (name.StartsWith("Alpha"))
                 return name.Substring(5);
             if (name.StartsWith("Keypad"))
@@ -290,9 +229,6 @@ namespace SewerMenu.Core.Keybinds
             return name;
         }
         
-        /// <summary>
-        /// Checks if a key is currently being used by another keybind.
-        /// </summary>
         public bool IsKeyInUse(KeyCode key, string excludeId = null)
         {
             foreach (var kvp in _keybinds)
@@ -305,9 +241,6 @@ namespace SewerMenu.Core.Keybinds
             return false;
         }
         
-        /// <summary>
-        /// Gets all registered keybinds.
-        /// </summary>
         public IReadOnlyDictionary<string, KeyCode> GetAllKeybinds()
         {
             return _keybinds;

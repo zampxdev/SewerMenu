@@ -7,19 +7,6 @@ using Il2CppScheduleOne.Property;
 
 namespace SewerMenu.Features.World
 {
-    /// <summary>
-    /// Unlocks all properties and businesses.
-    /// Uses direct IL2CPP access via GameTypes.Properties.
-    /// 
-    /// Property key properties:
-    /// - IsOwned (get/set) - Whether property is owned
-    /// - PropertyName (get) - Name of the property
-    /// - PropertyCode (get) - Code identifier
-    /// - Price (get/set) - Purchase price
-    /// 
-    /// PropertyManager key methods:
-    /// - GetProperty(string code) - Gets property by code
-    /// </summary>
     public class UnlockProperties : FeatureBase
     {
         public override string Id => "unlockproperties";
@@ -36,9 +23,6 @@ namespace SewerMenu.Features.World
             public float Price { get; set; }
         }
 
-        /// <summary>
-        /// Gets all properties in the game.
-        /// </summary>
         public List<PropertyInfo> GetAllProperties()
         {
             var properties = new List<PropertyInfo>();
@@ -70,9 +54,6 @@ namespace SewerMenu.Features.World
             return properties;
         }
 
-        /// <summary>
-        /// Gets the count of owned properties.
-        /// </summary>
         public int GetOwnedCount()
         {
             int count = 0;
@@ -91,9 +72,6 @@ namespace SewerMenu.Features.World
             return count;
         }
 
-        /// <summary>
-        /// Gets the total count of properties.
-        /// </summary>
         public int GetTotalCount()
         {
             try
@@ -107,9 +85,6 @@ namespace SewerMenu.Features.World
             }
         }
 
-        /// <summary>
-        /// Unlocks all properties.
-        /// </summary>
         public void UnlockAll()
         {
             SafeExecute(() =>
@@ -144,9 +119,6 @@ namespace SewerMenu.Features.World
             }, "unlocking all properties");
         }
 
-        /// <summary>
-        /// Unlocks a specific property by name.
-        /// </summary>
         public void UnlockProperty(string propertyName)
         {
             SafeExecute(() =>
@@ -174,9 +146,6 @@ namespace SewerMenu.Features.World
             }, "unlocking property");
         }
 
-        /// <summary>
-        /// Unlocks a specific property by code.
-        /// </summary>
         public void UnlockPropertyByCode(string code)
         {
             SafeExecute(() =>
@@ -208,9 +177,6 @@ namespace SewerMenu.Features.World
             }, "unlocking property by code");
         }
 
-        /// <summary>
-        /// Sets all property prices to zero.
-        /// </summary>
         public void SetAllPricesToZero()
         {
             SafeExecute(() =>

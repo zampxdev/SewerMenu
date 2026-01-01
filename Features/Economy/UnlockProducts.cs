@@ -6,9 +6,6 @@ using Il2CppScheduleOne.Product;
 
 namespace SewerMenu.Features.Economy
 {
-    /// <summary>
-    /// Unlocks/discovers all products for the player.
-    /// </summary>
     public class UnlockProducts : FeatureBase
     {
         public override string Id => "unlockproducts";
@@ -17,9 +14,6 @@ namespace SewerMenu.Features.Economy
         public override FeatureCategory Category => FeatureCategory.Economy;
         public override bool IsToggleable => false;
 
-        /// <summary>
-        /// Gets a list of all available product names.
-        /// </summary>
         public List<string> GetAllProducts()
         {
             var products = new List<string>();
@@ -49,9 +43,6 @@ namespace SewerMenu.Features.Economy
             return products;
         }
 
-        /// <summary>
-        /// Unlocks all products by discovering them.
-        /// </summary>
         public void UnlockAll()
         {
             SafeExecute(() =>
@@ -76,7 +67,6 @@ namespace SewerMenu.Features.Economy
                     if (product == null) continue;
                     try
                     {
-                        // Use DiscoverProduct method with the product ID
                         var productId = product.ID;
                         if (!string.IsNullOrEmpty(productId))
                         {

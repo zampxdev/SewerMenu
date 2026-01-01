@@ -9,9 +9,6 @@ using Il2CppScheduleOne.Persistence.Datas;
 
 namespace SewerMenu.Features.Vehicles
 {
-    /// <summary>
-    /// Spawns vehicles at the player's location.
-    /// </summary>
     public class VehicleSpawner : FeatureBase
     {
         public override string Id => "vehiclespawner";

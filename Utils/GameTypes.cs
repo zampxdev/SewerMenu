@@ -4,8 +4,6 @@ using UnityEngine;
 using Il2CppInterop.Runtime;
 using SewerMenu.Core.Logging;
 
-// Import game types from Assembly-CSharp.dll
-// These are the IL2CPP-generated types with Il2Cpp prefix
 using Il2CppScheduleOne.PlayerScripts;
 using Il2CppScheduleOne.PlayerScripts.Health;
 using Il2CppScheduleOne.Money;
@@ -23,23 +21,10 @@ using Il2CppSystem.Collections.Generic;
 
 namespace SewerMenu.Utils
 {
-    /// <summary>
-    /// Provides direct access to game types using IL2CPP interop.
-    /// All game object access should go through this class.
-    /// 
-    /// Key Types Reference:
-    /// - Player: Main player class (IsOwner for local player detection)
-    /// - PlayerMovement: MoveSpeedMultiplier, CurrentStaminaReserve, Teleport()
-    /// - PlayerHealth: CurrentHealth, SetHealth(), RecoverHealth(), IsAlive
-    /// - MoneyManager: cashBalance (get), onlineBalance (get/set), ChangeCashBalance()
-    /// - TimeManager: CurrentTime, SetTime(), ElapsedDays, CurrentDay
-    /// - LawManager: PoliceCalled()
-    /// </summary>
     public static class GameTypes
     {
         #region Cached References
         
-        // Player components
         private static Player _localPlayer;
         private static PlayerMovement _playerMovement;
         private static PlayerHealth _playerHealth;
@@ -47,7 +32,6 @@ namespace SewerMenu.Utils
         private static PlayerCamera _playerCamera;
         private static PlayerInventory _playerInventory;
         
-        // Managers
         private static MoneyManager _moneyManager;
         private static LawManager _lawManager;
         private static TimeManager _timeManager;
@@ -56,7 +40,6 @@ namespace SewerMenu.Utils
         private static PropertyManager _propertyManager;
         private static VehicleManager _vehicleManager;
         
-        // State
         private static bool _initialized = false;
         private static float _lastRefreshTime = 0f;
         private const float RefreshInterval = 2f;
@@ -112,9 +95,6 @@ namespace SewerMenu.Utils
         
         #region Player Access
         
-        /// <summary>
-        /// Gets the local player instance.
-        /// </summary>
         public static Player LocalPlayer
         {
             get
@@ -125,11 +105,6 @@ namespace SewerMenu.Utils
             }
         }
         
-        /// <summary>
-        /// Gets the player's movement component.
-        /// Key properties: MoveSpeedMultiplier, CurrentStaminaReserve, IsSprinting, CanJump
-        /// Key methods: Teleport(Vector3, bool), SetCrouched(bool)
-        /// </summary>
         public static PlayerMovement Movement
         {
             get
@@ -148,11 +123,6 @@ namespace SewerMenu.Utils
             }
         }
         
-        /// <summary>
-        /// Gets the player's health component.
-        /// Key properties: CurrentHealth, IsAlive, CanTakeDamage
-        /// Key methods: SetHealth(float), RecoverHealth(float), TakeDamage(float, bool, bool)
-        /// </summary>
         public static PlayerHealth Health
         {
             get
@@ -162,7 +132,6 @@ namespace SewerMenu.Utils
                     var player = LocalPlayer;
                     if (player != null)
                     {
-                        // PlayerHealth is accessed via Player.Health property
                         _playerHealth = player.Health;
                         if (_playerHealth == null)
                         {
@@ -176,11 +145,6 @@ namespace SewerMenu.Utils
             }
         }
         
-        /// <summary>
-        /// Gets the player's energy component.
-        /// Key properties: CurrentEnergy, DEBUG_DISABLE_ENERGY
-        /// Key methods: SetEnergy(float), RestoreEnergy(), ChangeEnergy(float)
-        /// </summary>
         public static PlayerEnergy Energy
         {
             get
@@ -190,7 +154,6 @@ namespace SewerMenu.Utils
                     var player = LocalPlayer;
                     if (player != null)
                     {
-                        // PlayerEnergy is accessed via Player.Energy property
                         _playerEnergy = player.Energy;
                         if (_playerEnergy == null)
                         {
@@ -204,10 +167,6 @@ namespace SewerMenu.Utils
             }
         }
         
-        /// <summary>
-        /// Gets the player's camera component.
-        /// Key properties: FreeCamEnabled, canLook, Camera
-        /// </summary>
         public static PlayerCamera Camera
         {
             get
@@ -228,9 +187,6 @@ namespace SewerMenu.Utils
             }
         }
         
-        /// <summary>
-        /// Gets the player's inventory.
-        /// </summary>
         public static PlayerInventory Inventory
         {
             get
@@ -243,14 +199,8 @@ namespace SewerMenu.Utils
             }
         }
         
-        /// <summary>
-        /// Gets the player's Transform for position/teleport operations.
-        /// </summary>
         public static Transform PlayerTransform => LocalPlayer?.transform;
         
-        /// <summary>
-        /// Gets or sets the player's current position.
-        /// </summary>
         public static Vector3 PlayerPosition
         {
             get => PlayerTransform != null ? PlayerTransform.position : Vector3.zero;
@@ -261,9 +211,6 @@ namespace SewerMenu.Utils
             }
         }
         
-        /// <summary>
-        /// Gets the player's GameObject.
-        /// </summary>
         public static GameObject PlayerGameObject => LocalPlayer?.gameObject;
         
         private static void FindLocalPlayer()
@@ -277,7 +224,6 @@ namespace SewerMenu.Utils
                     
                     try
                     {
-                        // IsOwner is the FishNet networking property for local player
                         if (player.IsOwner)
                         {
                             _localPlayer = player;
@@ -289,7 +235,6 @@ namespace SewerMenu.Utils
                     
                     try
                     {
-                        // Alternative: IsLocalPlayer property
                         if (player.IsLocalPlayer)
                         {
                             _localPlayer = player;
@@ -300,7 +245,6 @@ namespace SewerMenu.Utils
                     catch { }
                 }
                 
-                // Fallback: Find by name
                 var playerGO = GameObject.Find("Player");
                 if (playerGO != null)
                 {
@@ -312,7 +256,6 @@ namespace SewerMenu.Utils
                     }
                 }
                 
-                // Fallback: Single player
                 if (players.Length == 1)
                 {
                     _localPlayer = players[0];
@@ -320,7 +263,6 @@ namespace SewerMenu.Utils
                     return;
                 }
                 
-                // Fallback: Tag
                 playerGO = GameObject.FindGameObjectWithTag("Player");
                 if (playerGO != null)
                 {
@@ -341,11 +283,6 @@ namespace SewerMenu.Utils
         
         #region Manager Access
         
-        /// <summary>
-        /// Gets the MoneyManager singleton.
-        /// Key properties: cashBalance (get only), onlineBalance (get/set)
-        /// Key methods: ChangeCashBalance(float, bool, bool), CreateOnlineTransaction(...)
-        /// </summary>
         public static MoneyManager Money
         {
             get
@@ -360,10 +297,6 @@ namespace SewerMenu.Utils
             }
         }
         
-        /// <summary>
-        /// Gets the LawManager singleton.
-        /// Key methods: PoliceCalled(Player, Crime)
-        /// </summary>
         public static LawManager Law
         {
             get
@@ -378,11 +311,6 @@ namespace SewerMenu.Utils
             }
         }
         
-        /// <summary>
-        /// Gets the TimeManager singleton.
-        /// Key properties: CurrentTime, ElapsedDays, CurrentDay, IsNight
-        /// Key methods: SetTime(int, bool)
-        /// </summary>
         public static TimeManager Time
         {
             get
@@ -397,9 +325,6 @@ namespace SewerMenu.Utils
             }
         }
         
-        /// <summary>
-        /// Gets the LevelManager singleton.
-        /// </summary>
         public static LevelManager Level
         {
             get
@@ -414,9 +339,6 @@ namespace SewerMenu.Utils
             }
         }
         
-        /// <summary>
-        /// Gets the ProductManager singleton.
-        /// </summary>
         public static ProductManager Products
         {
             get
@@ -431,9 +353,6 @@ namespace SewerMenu.Utils
             }
         }
         
-        /// <summary>
-        /// Gets the PropertyManager singleton.
-        /// </summary>
         public static PropertyManager Properties
         {
             get
@@ -448,11 +367,6 @@ namespace SewerMenu.Utils
             }
         }
         
-        /// <summary>
-        /// Gets the VehicleManager singleton.
-        /// Key properties: VehiclePrefabs, AllVehicles, PlayerOwnedVehicles
-        /// Key methods: GetVehiclePrefab(string), SpawnAndReturnVehicle(...)
-        /// </summary>
         public static VehicleManager Vehicles
         {
             get
@@ -489,9 +403,6 @@ namespace SewerMenu.Utils
         
         #region NPC Access
         
-        /// <summary>
-        /// Gets all NPCs in the scene.
-        /// </summary>
         public static NPC[] GetAllNPCs()
         {
             try
@@ -508,9 +419,6 @@ namespace SewerMenu.Utils
         
         #region Police Access
         
-        /// <summary>
-        /// Gets all police officers in the scene.
-        /// </summary>
         public static PoliceOfficer[] GetAllPolice()
         {
             try
@@ -527,15 +435,11 @@ namespace SewerMenu.Utils
         
         #region Item Access
         
-        /// <summary>
-        /// Gets all item definitions from the Registry.
-        /// </summary>
         public static System.Collections.Generic.List<ItemDefinition> GetAllItemDefinitions()
         {
             var result = new System.Collections.Generic.List<ItemDefinition>();
             try
             {
-                // Try to get Registry singleton
                 var registry = UnityEngine.Object.FindObjectOfType<Registry>();
                 if (registry != null)
                 {
@@ -550,7 +454,6 @@ namespace SewerMenu.Utils
                     }
                 }
                 
-                // Fallback: find all ItemDefinition ScriptableObjects
                 if (result.Count == 0)
                 {
                     var allDefs = Resources.FindObjectsOfTypeAll<ItemDefinition>();
@@ -571,9 +474,6 @@ namespace SewerMenu.Utils
             return result;
         }
         
-        /// <summary>
-        /// Gets an item definition by ID.
-        /// </summary>
         public static ItemDefinition GetItemById(string id)
         {
             try
@@ -589,9 +489,6 @@ namespace SewerMenu.Utils
             return null;
         }
         
-        /// <summary>
-        /// Creates an item instance from a definition.
-        /// </summary>
         public static ItemInstance CreateItemInstance(ItemDefinition definition, int quantity = 1)
         {
             try
@@ -608,9 +505,6 @@ namespace SewerMenu.Utils
             return null;
         }
         
-        /// <summary>
-        /// Adds an item to the player's inventory.
-        /// </summary>
         public static bool AddItemToInventory(ItemDefinition definition, int quantity = 1)
         {
             try
@@ -640,14 +534,8 @@ namespace SewerMenu.Utils
         
         #region Utility
         
-        /// <summary>
-        /// Checks if the game is in a playable state (player exists).
-        /// </summary>
         public static bool IsGameReady => LocalPlayer != null;
         
-        /// <summary>
-        /// Log diagnostic information about found game objects.
-        /// </summary>
         public static void LogDiagnostics()
         {
             SewerLogger.Info("=== GAME TYPES DIAGNOSTICS ===");

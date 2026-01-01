@@ -5,18 +5,6 @@ using SewerMenu.Utils;
 
 namespace SewerMenu.Features.World
 {
-    /// <summary>
-    /// Freezes all NPCs in place.
-    /// Uses direct IL2CPP access via GameTypes.GetAllNPCs().
-    /// 
-    /// NPC key properties:
-    /// - Movement (NPCMovement) - Movement component
-    /// 
-    /// NPCMovement key properties:
-    /// - IsPaused (get/set) - Pauses movement
-    /// - Agent (NavMeshAgent) - Navigation agent
-    /// - IsMoving (get) - Whether NPC is moving
-    /// </summary>
     public class NPCFreeze : FeatureBase
     {
         public override string Id => "npcfreeze";
@@ -36,9 +24,6 @@ namespace SewerMenu.Features.World
             SewerLogger.Debug("NPCFreeze disabled");
         }
 
-        /// <summary>
-        /// Gets the count of NPCs in the scene.
-        /// </summary>
         public int GetNPCCount()
         {
             try
@@ -52,9 +37,6 @@ namespace SewerMenu.Features.World
             }
         }
 
-        /// <summary>
-        /// Freezes or unfreezes all NPCs.
-        /// </summary>
         public void FreezeAllNPCs(bool freeze)
         {
             SafeExecute(() =>
@@ -73,14 +55,12 @@ namespace SewerMenu.Features.World
 
                     try
                     {
-                        // Access the Movement component
                         var movement = npc.Movement;
                         if (movement != null)
                         {
-                            // Pause/unpause movement
                             movement.IsPaused = freeze;
                             
-                            // Also try to stop the NavMeshAgent via reflection
+                            // NavMeshAgent.isStopped isn't directly accessible in Il2Cpp, use reflection
                             try
                             {
                                 var agentProp = movement.GetType().GetProperty("Agent");
@@ -113,9 +93,6 @@ namespace SewerMenu.Features.World
             }, freeze ? "freezing NPCs" : "unfreezing NPCs");
         }
 
-        /// <summary>
-        /// Freezes a single NPC.
-        /// </summary>
         public void FreezeNPC(Il2CppScheduleOne.NPCs.NPC npc, bool freeze)
         {
             if (npc == null) return;
@@ -127,7 +104,7 @@ namespace SewerMenu.Features.World
                 {
                     movement.IsPaused = freeze;
                     
-                    // Use reflection for NavMeshAgent
+                    // NavMeshAgent.isStopped isn't directly accessible in Il2Cpp, use reflection
                     try
                     {
                         var agentProp = movement.GetType().GetProperty("Agent");
@@ -150,9 +127,6 @@ namespace SewerMenu.Features.World
             catch { }
         }
 
-        /// <summary>
-        /// Kills all NPCs.
-        /// </summary>
         public void KillAllNPCs()
         {
             SafeExecute(() =>
@@ -170,7 +144,6 @@ namespace SewerMenu.Features.World
                         var health = npc.Health;
                         if (health != null)
                         {
-                            // Try to kill the NPC
                             var killMethod = health.GetType().GetMethod("Kill");
                             if (killMethod != null)
                             {
@@ -187,9 +160,6 @@ namespace SewerMenu.Features.World
             }, "killing NPCs");
         }
 
-        /// <summary>
-        /// Teleports all NPCs away from the player.
-        /// </summary>
         public void TeleportNPCsAway()
         {
             SafeExecute(() =>

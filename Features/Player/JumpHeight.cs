@@ -4,9 +4,6 @@ using SewerMenu.Utils;
 
 namespace SewerMenu.Features.Player
 {
-    /// <summary>
-    /// Multiplies the player's jump height using SetResidualVelocity.
-    /// </summary>
     public class JumpHeight : FeatureBase
     {
         public override string Id => "jumpheight";

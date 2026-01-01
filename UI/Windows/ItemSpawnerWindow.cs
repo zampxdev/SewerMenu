@@ -10,10 +10,7 @@ using Il2CppScheduleOne.ItemFramework;
 
 namespace SewerMenu.UI.Windows
 {
-    /// <summary>
-    /// Dedicated window for item spawning with category organization.
-    /// Uses GUILayout.Window with lambda to avoid IL2CPP delegate issues.
-    /// </summary>
+    // Uses direct drawing (not GUI.Window) to avoid IL2CPP delegate issues
     public class ItemSpawnerWindow
     {
         #region Singleton
@@ -30,33 +27,26 @@ namespace SewerMenu.UI.Windows
         private bool _isVisible = false;
         private Rect _windowRect = new Rect(100, 100, 750, 550);
         
-        // Category system
         private List<string> _categories = new List<string>();
         private int _selectedCategoryIndex = 0;
         private Dictionary<string, List<ItemSpawner.ItemInfo>> _itemsByCategory = new Dictionary<string, List<ItemSpawner.ItemInfo>>();
         
-        // Item list
         private Vector2 _categoryScrollPos;
         private Vector2 _itemScrollPos;
         private int _selectedItemIndex = -1;
         private ItemSpawner.ItemInfo _selectedItem = null;
         
-        // Search and quantity
         private string _searchFilter = "";
         private int _spawnQuantity = 1;
         
-        // Cached data
         private bool _dataLoaded = false;
         private List<ItemSpawner.ItemInfo> _currentItems = new List<ItemSpawner.ItemInfo>();
         
-        // Presets for quantity
         private readonly int[] _quantityPresets = { 1, 5, 10, 25, 50, 100, 999 };
         
-        // For dragging
         private bool _isDragging = false;
         private Vector2 _dragOffset;
         
-        // Cached textures for consistent styling
         private static Texture2D _solidTex;
         
         #endregion
@@ -186,7 +176,6 @@ namespace SewerMenu.UI.Windows
                 return;
             }
             
-            // Apply search filter
             if (string.IsNullOrWhiteSpace(_searchFilter))
             {
                 _currentItems = new List<ItemSpawner.ItemInfo>(items);
@@ -200,13 +189,11 @@ namespace SewerMenu.UI.Windows
                     .ToList();
             }
             
-            // Reset selection if out of bounds
             if (_selectedItemIndex >= _currentItems.Count)
             {
                 _selectedItemIndex = _currentItems.Count > 0 ? 0 : -1;
             }
             
-            // Update selected item reference
             if (_selectedItemIndex >= 0 && _selectedItemIndex < _currentItems.Count)
             {
                 _selectedItem = _currentItems[_selectedItemIndex];
@@ -219,7 +206,7 @@ namespace SewerMenu.UI.Windows
         
         #endregion
         
-        #region OnGUI - No GUI.Window, just direct drawing
+        #region OnGUI
         
         public void OnGUI()
         {
@@ -229,17 +216,12 @@ namespace SewerMenu.UI.Windows
             {
                 SewerSkin.BeginUI();
                 
-                // Clamp to screen
                 _windowRect.x = Mathf.Clamp(_windowRect.x, 0, Screen.width - 100);
                 _windowRect.y = Mathf.Clamp(_windowRect.y, 0, Screen.height - 100);
                 
-                // Handle dragging manually
                 HandleDragging();
-                
-                // Draw window background with our theme
                 DrawWindowBackground();
                 
-                // Draw content inside the rect
                 GUILayout.BeginArea(new Rect(_windowRect.x + 8, _windowRect.y + 4, _windowRect.width - 16, _windowRect.height - 8));
                 DrawWindowContent();
                 GUILayout.EndArea();
@@ -278,9 +260,7 @@ namespace SewerMenu.UI.Windows
         
         private void HandleDragging()
         {
-            // Title bar rect for dragging - exclude the close button area (last 40 pixels)
             Rect titleBar = new Rect(_windowRect.x, _windowRect.y, _windowRect.width - 40, 30);
-            
             Event e = Event.current;
             
             if (e.type == EventType.MouseDown && titleBar.Contains(e.mousePosition))
@@ -303,12 +283,8 @@ namespace SewerMenu.UI.Windows
         
         private void DrawWindowContent()
         {
-            // ═══════════════════════════════════════════════════════════
-            // HEADER
-            // ═══════════════════════════════════════════════════════════
             Rect headerRect = GUILayoutUtility.GetRect(0, 32, GUILayout.ExpandWidth(true));
             
-            // Header background
             var oldColor = GUI.color;
             GUI.color = new Color(0.04f, 0.05f, 0.07f, 1f);
             GUI.DrawTexture(headerRect, _solidTex);
@@ -321,7 +297,6 @@ namespace SewerMenu.UI.Windows
             GUI.Label(new Rect(headerRect.x + 8, headerRect.y + 6, 150, 20), "ITEM SPAWNER", titleStyle);
             GUI.contentColor = oldContentColor;
             
-            // Close button (X)
             Rect closeRect = new Rect(headerRect.x + headerRect.width - 32, headerRect.y + 4, 28, 24);
             if (DrawStyledButton(closeRect, "X", true))
             {
@@ -330,34 +305,16 @@ namespace SewerMenu.UI.Windows
             }
             
             GUILayout.Space(6);
-            
-            // ═══════════════════════════════════════════════════════════
-            // QUANTITY BAR
-            // ═══════════════════════════════════════════════════════════
             DrawTopBar();
-            
             GUILayout.Space(6);
             
-            // ═══════════════════════════════════════════════════════════
-            // MAIN CONTENT
-            // ═══════════════════════════════════════════════════════════
             GUILayout.BeginHorizontal();
-            
-            // Left sidebar - categories
             DrawCategorySidebar();
-            
             GUILayout.Space(6);
-            
-            // Right panel - items
             DrawItemList();
-            
             GUILayout.EndHorizontal();
             
             GUILayout.Space(6);
-            
-            // ═══════════════════════════════════════════════════════════
-            // FOOTER
-            // ═══════════════════════════════════════════════════════════
             DrawBottomBar();
         }
         
@@ -365,7 +322,6 @@ namespace SewerMenu.UI.Windows
         {
             Rect barRect = GUILayoutUtility.GetRect(0, 36, GUILayout.ExpandWidth(true));
             
-            // Background
             var oldColor = GUI.color;
             GUI.color = SewerSkin.PanelColor;
             GUI.DrawTexture(barRect, _solidTex);
@@ -374,7 +330,6 @@ namespace SewerMenu.UI.Windows
             float xPos = barRect.x + 8;
             float yPos = barRect.y + 6;
             
-            // Quantity label
             var oldContentColor = GUI.contentColor;
             GUI.contentColor = SewerSkin.TextMutedColor;
             GUI.Label(new Rect(xPos, yPos, 60, 24), "Quantity:");
@@ -414,28 +369,24 @@ namespace SewerMenu.UI.Windows
             GUI.contentColor = oldContentColor;
             xPos += 59;
             
-            // + button
             if (DrawStyledButton(new Rect(xPos, yPos, 28, 24), "+", false))
             {
                 _spawnQuantity = Mathf.Min(9999, _spawnQuantity + 1);
             }
             xPos += 32;
             
-            // +10 button
             if (DrawStyledButton(new Rect(xPos, yPos, 38, 24), "+10", false))
             {
                 _spawnQuantity = Mathf.Min(9999, _spawnQuantity + 10);
             }
             xPos += 50;
             
-            // Quick presets label
             oldContentColor = GUI.contentColor;
             GUI.contentColor = SewerSkin.TextMutedColor;
             GUI.Label(new Rect(xPos, yPos, 45, 24), "Quick:");
             GUI.contentColor = oldContentColor;
             xPos += 48;
             
-            // Preset buttons
             foreach (int preset in _quantityPresets)
             {
                 bool isSelected = _spawnQuantity == preset;
@@ -446,7 +397,6 @@ namespace SewerMenu.UI.Windows
                 xPos += 46;
             }
             
-            // Refresh button (right side)
             float refreshX = barRect.x + barRect.width - 90;
             if (DrawStyledButton(new Rect(refreshX, yPos, 82, 24), "Refresh", false))
             {
@@ -458,7 +408,6 @@ namespace SewerMenu.UI.Windows
         {
             GUILayout.BeginVertical(GUILayout.Width(140));
             
-            // Header
             Rect headerRect = GUILayoutUtility.GetRect(0, 26, GUILayout.ExpandWidth(true));
             var oldColor = GUI.color;
             GUI.color = new Color(0.06f, 0.075f, 0.09f, 1f);
@@ -471,14 +420,12 @@ namespace SewerMenu.UI.Windows
             GUI.Label(new Rect(headerRect.x + 8, headerRect.y + 5, 120, 16), "CATEGORIES", headerStyle);
             GUI.contentColor = oldContentColor;
             
-            // Scrollable list background
             Rect scrollAreaRect = GUILayoutUtility.GetRect(0, 0, GUILayout.Width(135), GUILayout.ExpandHeight(true));
             oldColor = GUI.color;
             GUI.color = new Color(0.055f, 0.07f, 0.085f, 1f);
             GUI.DrawTexture(scrollAreaRect, _solidTex);
             GUI.color = oldColor;
             
-            // Scroll view
             _categoryScrollPos = GUILayout.BeginScrollView(_categoryScrollPos, GUIStyle.none, GUI.skin.verticalScrollbar, GUILayout.Width(135), GUILayout.ExpandHeight(true));
             
             for (int i = 0; i < _categories.Count; i++)
@@ -491,7 +438,6 @@ namespace SewerMenu.UI.Windows
                 
                 Rect btnRect = GUILayoutUtility.GetRect(0, 26, GUILayout.ExpandWidth(true));
                 
-                // Draw button background
                 oldColor = GUI.color;
                 if (isSelected)
                 {
@@ -505,14 +451,12 @@ namespace SewerMenu.UI.Windows
                 GUI.DrawTexture(btnRect, _solidTex);
                 GUI.color = oldColor;
                 
-                // Draw text
                 oldContentColor = GUI.contentColor;
                 GUI.contentColor = isSelected ? new Color(0.02f, 0.04f, 0.06f, 1f) : SewerSkin.TextColor;
                 var btnStyle = new GUIStyle(GUI.skin.label) { fontSize = 11, alignment = TextAnchor.MiddleLeft, padding = new RectOffset(8, 4, 0, 0) };
                 GUI.Label(btnRect, label, btnStyle);
                 GUI.contentColor = oldContentColor;
                 
-                // Click detection
                 if (GUI.Button(btnRect, "", GUIStyle.none))
                 {
                     _selectedCategoryIndex = i;
@@ -532,7 +476,6 @@ namespace SewerMenu.UI.Windows
         {
             GUILayout.BeginVertical(GUILayout.ExpandWidth(true));
             
-            // Header
             Rect headerRect = GUILayoutUtility.GetRect(0, 26, GUILayout.ExpandWidth(true));
             var oldColor = GUI.color;
             GUI.color = new Color(0.06f, 0.075f, 0.09f, 1f);
@@ -550,14 +493,12 @@ namespace SewerMenu.UI.Windows
             GUI.Label(new Rect(headerRect.x + headerRect.width - 80, headerRect.y + 5, 70, 16), $"{_currentItems.Count} items", countStyle);
             GUI.contentColor = oldContentColor;
             
-            // Item list background
             Rect scrollAreaRect = GUILayoutUtility.GetRect(0, 0, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
             oldColor = GUI.color;
             GUI.color = new Color(0.055f, 0.07f, 0.085f, 1f);
             GUI.DrawTexture(scrollAreaRect, _solidTex);
             GUI.color = oldColor;
             
-            // Scroll view
             _itemScrollPos = GUILayout.BeginScrollView(_itemScrollPos, GUIStyle.none, GUI.skin.verticalScrollbar, GUILayout.ExpandWidth(true), GUILayout.ExpandHeight(true));
             
             for (int i = 0; i < _currentItems.Count; i++)
@@ -567,7 +508,6 @@ namespace SewerMenu.UI.Windows
                 
                 Rect rowRect = GUILayoutUtility.GetRect(0, 28, GUILayout.ExpandWidth(true));
                 
-                // Row background
                 oldColor = GUI.color;
                 if (isSelected)
                 {
@@ -580,7 +520,6 @@ namespace SewerMenu.UI.Windows
                 }
                 GUI.DrawTexture(rowRect, _solidTex);
                 
-                // Left accent bar for selected
                 if (isSelected)
                 {
                     GUI.color = SewerSkin.AccentColor;
@@ -590,7 +529,6 @@ namespace SewerMenu.UI.Windows
                 
                 float xPos = rowRect.x + 10;
                 
-                // Item name (clickable area)
                 Rect nameRect = new Rect(xPos, rowRect.y + 4, rowRect.width - 220, 20);
                 oldContentColor = GUI.contentColor;
                 GUI.contentColor = isSelected ? SewerSkin.AccentGlow : SewerSkin.TextColor;
@@ -598,26 +536,22 @@ namespace SewerMenu.UI.Windows
                 GUI.Label(nameRect, item.Name ?? "???", nameStyle);
                 GUI.contentColor = oldContentColor;
                 
-                // Click to select
                 if (GUI.Button(new Rect(rowRect.x, rowRect.y, rowRect.width - 70, rowRect.height), "", GUIStyle.none))
                 {
                     _selectedItemIndex = i;
                     _selectedItem = item;
                 }
                 
-                // Category tag
                 float tagX = rowRect.x + rowRect.width - 200;
                 oldContentColor = GUI.contentColor;
                 GUI.contentColor = SewerSkin.TextMutedColor;
                 var tagStyle = new GUIStyle(GUI.skin.label) { fontSize = 10 };
                 GUI.Label(new Rect(tagX, rowRect.y + 6, 80, 16), $"[{item.Category ?? "?"}]", tagStyle);
                 
-                // Stack limit
                 GUI.contentColor = new Color(0.5f, 0.55f, 0.6f, 1f);
                 GUI.Label(new Rect(tagX + 82, rowRect.y + 6, 40, 16), $"x{item.StackLimit}", tagStyle);
                 GUI.contentColor = oldContentColor;
                 
-                // Quick add button
                 Rect addRect = new Rect(rowRect.x + rowRect.width - 58, rowRect.y + 3, 52, 22);
                 if (DrawStyledButton(addRect, "+ Add", false, false, true))
                 {
@@ -643,7 +577,6 @@ namespace SewerMenu.UI.Windows
         
         private void DrawBottomBar()
         {
-            // Accent line
             Rect lineRect = GUILayoutUtility.GetRect(0, 2, GUILayout.ExpandWidth(true));
             var oldColor = GUI.color;
             GUI.color = SewerSkin.AccentColor;
@@ -652,7 +585,6 @@ namespace SewerMenu.UI.Windows
             
             GUILayout.Space(4);
             
-            // Footer bar
             Rect footerRect = GUILayoutUtility.GetRect(0, 40, GUILayout.ExpandWidth(true));
             oldColor = GUI.color;
             GUI.color = new Color(0.04f, 0.05f, 0.065f, 1f);
@@ -662,7 +594,6 @@ namespace SewerMenu.UI.Windows
             float xPos = footerRect.x + 10;
             float yPos = footerRect.y + 10;
             
-            // Selected item info
             var oldContentColor = GUI.contentColor;
             if (_selectedItem != null)
             {
@@ -691,7 +622,6 @@ namespace SewerMenu.UI.Windows
             GUI.Label(new Rect(footerRect.x + footerRect.width - 250, yPos, 90, 20), $"{totalItems} items total", countStyle);
             GUI.contentColor = oldContentColor;
             
-            // Main spawn button
             Rect spawnRect = new Rect(footerRect.x + footerRect.width - 150, footerRect.y + 6, 140, 28);
             if (_selectedItem != null)
             {
@@ -703,7 +633,6 @@ namespace SewerMenu.UI.Windows
             }
             else
             {
-                // Disabled state
                 oldColor = GUI.color;
                 GUI.color = new Color(0.15f, 0.17f, 0.2f, 1f);
                 GUI.DrawTexture(spawnRect, _solidTex);
@@ -717,16 +646,10 @@ namespace SewerMenu.UI.Windows
             }
         }
         
-        /// <summary>
-        /// Draws a styled button using our theme. Returns true if clicked.
-        /// </summary>
         private bool DrawStyledButton(Rect rect, string text, bool isDanger = false, bool isAccent = false, bool isSuccess = false)
         {
             bool isHovered = rect.Contains(Event.current.mousePosition);
-            
             var oldColor = GUI.color;
-            
-            // Determine colors based on type
             Color bgColor, hoverColor, textColor;
             if (isDanger)
             {
@@ -753,11 +676,9 @@ namespace SewerMenu.UI.Windows
                 textColor = SewerSkin.TextColor;
             }
             
-            // Draw background
             GUI.color = isHovered ? hoverColor : bgColor;
             GUI.DrawTexture(rect, _solidTex);
             
-            // Draw subtle border
             GUI.color = new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.5f);
             GUI.DrawTexture(new Rect(rect.x, rect.y, rect.width, 1), _solidTex);
             GUI.DrawTexture(new Rect(rect.x, rect.y + rect.height - 1, rect.width, 1), _solidTex);
@@ -765,14 +686,12 @@ namespace SewerMenu.UI.Windows
             GUI.DrawTexture(new Rect(rect.x + rect.width - 1, rect.y, 1, rect.height), _solidTex);
             GUI.color = oldColor;
             
-            // Draw text
             var oldContentColor = GUI.contentColor;
             GUI.contentColor = textColor;
             var btnStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 11 };
             GUI.Label(rect, text, btnStyle);
             GUI.contentColor = oldContentColor;
             
-            // Click detection
             return GUI.Button(rect, "", GUIStyle.none);
         }
         

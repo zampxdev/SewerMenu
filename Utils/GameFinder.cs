@@ -6,10 +6,6 @@ using SewerMenu.Core.Logging;
 
 namespace SewerMenu.Utils
 {
-    /// <summary>
-    /// Utility class for finding game objects and managers.
-    /// Optimized with aggressive caching to prevent performance issues.
-    /// </summary>
     public static class GameFinder
     {
         #region Cache
@@ -25,36 +21,28 @@ namespace SewerMenu.Utils
         private static object _productManager;
         private static object _propertyManager;
         
-        // Track failed lookups to avoid repeated expensive searches
         private static readonly HashSet<string> _failedLookups = new HashSet<string>();
         private static float _lastFailedLookupClearTime;
-        private static readonly float FailedLookupClearInterval = 30f; // Only retry failed lookups every 30 seconds
+        private static readonly float FailedLookupClearInterval = 30f;
         
         private static readonly Dictionary<string, object> _managerCache = new Dictionary<string, object>();
         
-        // Flag to track if we've done initial discovery
         private static readonly Dictionary<string, Type> _discoveredTypes = new Dictionary<string, Type>();
         
         #endregion
         
         #region Player
         
-        /// <summary>
-        /// Gets the local player GameObject.
-        /// </summary>
         public static GameObject GetLocalPlayer()
         {
-            // Return cached if valid
             if (_localPlayer != null)
                 return _localPlayer;
             
-            // Check if we've already failed this lookup recently
             if (IsFailedLookup("LocalPlayer"))
                 return null;
             
             try
             {
-                // Try to find player by tag first (fastest)
                 _localPlayer = GameObject.FindGameObjectWithTag("Player");
                 if (_localPlayer != null)
                 {
@@ -62,7 +50,6 @@ namespace SewerMenu.Utils
                     return _localPlayer;
                 }
                 
-                // Try common names
                 string[] playerNames = { "Player", "LocalPlayer", "Player(Clone)", "PlayerController" };
                 foreach (var name in playerNames)
                 {
@@ -74,19 +61,16 @@ namespace SewerMenu.Utils
                     }
                 }
                 
-                // Try to find by component - but only once per session
                 var allObjects = UnityEngine.Object.FindObjectsOfType<MonoBehaviour>();
                 foreach (var obj in allObjects)
                 {
                     var typeName = obj.GetType().Name;
                     var fullName = obj.GetType().FullName ?? "";
                     
-                    // Schedule I specific patterns
                     if (typeName == "Player" || 
                         fullName.Contains("PlayerScripts.Player") ||
                         fullName.Contains("ScheduleOne.Player"))
                     {
-                        // Check if this is the local player (not an NPC)
                         var isLocalProp = obj.GetType().GetProperty("IsLocal") ?? 
                                          obj.GetType().GetProperty("isLocalPlayer") ??
                                          obj.GetType().GetProperty("IsOwner");
@@ -107,7 +91,6 @@ namespace SewerMenu.Utils
                         }
                         else
                         {
-                            // No IsLocal property, assume it's the player
                             _localPlayer = obj.gameObject;
                             SewerLogger.Debug($"Found player component: {_localPlayer.name} ({fullName})");
                             return _localPlayer;
@@ -115,7 +98,6 @@ namespace SewerMenu.Utils
                     }
                 }
                 
-                // Mark as failed lookup
                 MarkFailedLookup("LocalPlayer");
             }
             catch (Exception ex)
@@ -127,9 +109,6 @@ namespace SewerMenu.Utils
             return null;
         }
         
-        /// <summary>
-        /// Gets the player's health component.
-        /// </summary>
         public static object GetPlayerHealth()
         {
             if (_playerHealth != null)
@@ -155,7 +134,6 @@ namespace SewerMenu.Utils
                     }
                 }
                 
-                // Try to get from Player component properties
                 foreach (var comp in components)
                 {
                     var healthProp = comp.GetType().GetProperty("Health");
@@ -181,9 +159,6 @@ namespace SewerMenu.Utils
             return null;
         }
         
-        /// <summary>
-        /// Gets the player's movement component.
-        /// </summary>
         public static object GetPlayerMovement()
         {
             if (_playerMovement != null)
@@ -199,7 +174,6 @@ namespace SewerMenu.Utils
             {
                 var components = player.GetComponentsInChildren<MonoBehaviour>(true);
                 
-                // Priority order for movement components
                 string[] movementPatterns = { "PlayerMovement", "Movement", "CharacterController", "Motor", "Locomotion" };
                 
                 foreach (var pattern in movementPatterns)
@@ -216,7 +190,6 @@ namespace SewerMenu.Utils
                     }
                 }
                 
-                // Try CharacterController (Unity built-in)
                 var cc = player.GetComponent<CharacterController>();
                 if (cc != null)
                 {
@@ -236,9 +209,6 @@ namespace SewerMenu.Utils
             return null;
         }
         
-        /// <summary>
-        /// Gets the player's inventory component.
-        /// </summary>
         public static object GetPlayerInventory()
         {
             if (_playerInventory != null)
@@ -279,63 +249,36 @@ namespace SewerMenu.Utils
         
         #region Managers
         
-        /// <summary>
-        /// Gets the MoneyManager instance.
-        /// </summary>
         public static object GetMoneyManager()
         {
-            // Actual game type: Il2CppScheduleOne.Money.MoneyManager
             return _moneyManager ??= FindManager("MoneyManager");
         }
         
-        /// <summary>
-        /// Gets the LevelManager instance.
-        /// </summary>
         public static object GetLevelManager()
         {
-            // Actual game type: Il2CppScheduleOne.Levelling.LevelManager
             return _levelManager ??= FindManager("LevelManager");
         }
         
-        /// <summary>
-        /// Gets the TimeManager instance.
-        /// </summary>
         public static object GetTimeManager()
         {
-            // Actual game type: Il2CppScheduleOne.GameTime.TimeManager
             return _timeManager ??= FindManager("TimeManager");
         }
         
-        /// <summary>
-        /// Gets the LawManager instance.
-        /// </summary>
         public static object GetLawManager()
         {
-            // Actual game type: Il2CppScheduleOne.Law.LawManager
             return _lawManager ??= FindManager("LawManager");
         }
         
-        /// <summary>
-        /// Gets the ProductManager instance.
-        /// </summary>
         public static object GetProductManager()
         {
-            // Actual game type: Il2CppScheduleOne.Product.ProductManager
             return _productManager ??= FindManager("ProductManager");
         }
         
-        /// <summary>
-        /// Gets the PropertyManager instance.
-        /// </summary>
         public static object GetPropertyManager()
         {
-            // Actual game type: Il2CppScheduleOne.Property.PropertyManager
             return _propertyManager ??= FindManager("PropertyManager");
         }
         
-        /// <summary>
-        /// Finds a manager by trying multiple possible names.
-        /// </summary>
         public static object FindManager(params string[] possibleNames)
         {
             string cacheKey = string.Join("|", possibleNames);
@@ -350,7 +293,6 @@ namespace SewerMenu.Utils
             {
                 foreach (var managerName in possibleNames)
                 {
-                    // Try to find by GameObject name
                     var go = GameObject.Find(managerName);
                     if (go != null)
                     {
@@ -364,7 +306,6 @@ namespace SewerMenu.Utils
                     }
                 }
                 
-                // Try to find by component type name (expensive - only do once)
                 var allObjects = UnityEngine.Object.FindObjectsOfType<MonoBehaviour>();
                 foreach (var managerName in possibleNames)
                 {
@@ -380,7 +321,6 @@ namespace SewerMenu.Utils
                     }
                 }
                 
-                // Try to find singleton instance
                 foreach (var managerName in possibleNames)
                 {
                     foreach (var obj in allObjects)
@@ -421,7 +361,6 @@ namespace SewerMenu.Utils
         
         private static bool IsFailedLookup(string key)
         {
-            // Clear failed lookups periodically to allow retry
             if (Time.time - _lastFailedLookupClearTime > FailedLookupClearInterval)
             {
                 _failedLookups.Clear();
@@ -441,9 +380,6 @@ namespace SewerMenu.Utils
         
         #region Cache Management
         
-        /// <summary>
-        /// Clears all cached references. Call when scene changes.
-        /// </summary>
         public static void ClearCache()
         {
             _localPlayer = null;
@@ -463,9 +399,6 @@ namespace SewerMenu.Utils
             SewerLogger.Debug("GameFinder cache cleared");
         }
         
-        /// <summary>
-        /// Call this when scene changes to reset lookups.
-        /// </summary>
         public static void OnSceneChanged()
         {
             ClearCache();

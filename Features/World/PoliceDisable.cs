@@ -5,19 +5,6 @@ using SewerMenu.Utils;
 
 namespace SewerMenu.Features.World
 {
-    /// <summary>
-    /// Disables police and clears wanted level.
-    /// Uses direct IL2CPP access via GameTypes.
-    /// 
-    /// PoliceOfficer key methods:
-    /// - Deactivate() - Deactivates the officer
-    /// - Activate() - Activates the officer
-    /// 
-    /// PoliceOfficer key properties:
-    /// - AutoDeactivate (get/set)
-    /// - Suspicion (get/set)
-    /// - PursuitTarget (get)
-    /// </summary>
     public class PoliceDisable : FeatureBase
     {
         public override string Id => "policedisable";
@@ -59,9 +46,6 @@ namespace SewerMenu.Features.World
             }, "maintaining police disable");
         }
 
-        /// <summary>
-        /// Gets the count of active police officers.
-        /// </summary>
         public int GetPoliceCount()
         {
             try
@@ -75,9 +59,6 @@ namespace SewerMenu.Features.World
             }
         }
 
-        /// <summary>
-        /// Clears the player's wanted level by resetting police suspicion.
-        /// </summary>
         public void ClearWantedLevel()
         {
             SafeExecute(() =>
@@ -91,7 +72,6 @@ namespace SewerMenu.Features.World
 
                     try
                     {
-                        // Reset suspicion
                         officer.Suspicion = 0f;
                     }
                     catch { }
@@ -99,9 +79,6 @@ namespace SewerMenu.Features.World
             }, "clearing wanted level");
         }
 
-        /// <summary>
-        /// Disables police AI by deactivating officers.
-        /// </summary>
         public void DisablePoliceAI()
         {
             SafeExecute(() =>
@@ -115,13 +92,8 @@ namespace SewerMenu.Features.World
 
                     try
                     {
-                        // Reset suspicion
                         officer.Suspicion = 0f;
-                        
-                        // Set auto deactivate
                         officer.AutoDeactivate = true;
-                        
-                        // Deactivate the officer
                         officer.Deactivate();
                     }
                     catch { }
@@ -129,9 +101,6 @@ namespace SewerMenu.Features.World
             }, "disabling police AI");
         }
 
-        /// <summary>
-        /// Removes all police from the scene.
-        /// </summary>
         public void RemoveAllPolice()
         {
             SafeExecute(() =>
@@ -161,9 +130,6 @@ namespace SewerMenu.Features.World
             }, "removing police");
         }
 
-        /// <summary>
-        /// Teleports all police away from the player.
-        /// </summary>
         public void TeleportPoliceAway()
         {
             SafeExecute(() =>
@@ -180,7 +146,6 @@ namespace SewerMenu.Features.World
 
                     try
                     {
-                        // Move officer 500 units away
                         var direction = (officer.transform.position - playerPos).normalized;
                         if (direction == Vector3.zero)
                             direction = Vector3.forward;

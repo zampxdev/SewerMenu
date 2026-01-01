@@ -9,10 +9,6 @@ using Il2CppScheduleOne.ItemFramework;
 
 namespace SewerMenu.Features.Items
 {
-    /// <summary>
-    /// Spawns items for the player using direct IL2CPP access.
-    /// Uses Registry.GetAllItems() and PlayerInventory.AddItemToInventory().
-    /// </summary>
     public class ItemSpawner : FeatureBase
     {
         public override string Id => "itemspawner";
@@ -39,9 +35,6 @@ namespace SewerMenu.Features.Items
             public ItemDefinition Definition { get; set; }
         }
 
-        /// <summary>
-        /// Gets all available items in the game.
-        /// </summary>
         public List<ItemInfo> GetAllItems()
         {
             if (_itemsCached && _allItems.Count > 0)
@@ -51,15 +44,11 @@ namespace SewerMenu.Features.Items
             return _allItems;
         }
 
-        /// <summary>
-        /// Gets filtered items based on search.
-        /// </summary>
         public List<ItemInfo> GetFilteredItems()
         {
             if (!_itemsCached)
                 RefreshItemCache();
 
-            // Update filter if changed
             if (_lastFilter != SearchFilter)
             {
                 _lastFilter = SearchFilter;
@@ -77,7 +66,6 @@ namespace SewerMenu.Features.Items
                         .ToList();
                 }
                 
-                // Reset selection if out of bounds
                 if (SelectedIndex >= _filteredItems.Count)
                     SelectedIndex = 0;
             }
@@ -85,9 +73,6 @@ namespace SewerMenu.Features.Items
             return _filteredItems;
         }
 
-        /// <summary>
-        /// Refreshes the item cache from the game.
-        /// </summary>
         public void RefreshItemCache()
         {
             _allItems.Clear();
@@ -145,9 +130,6 @@ namespace SewerMenu.Features.Items
             }
         }
 
-        /// <summary>
-        /// Spawns the currently selected item.
-        /// </summary>
         public void SpawnSelected()
         {
             var items = GetFilteredItems();
@@ -161,9 +143,6 @@ namespace SewerMenu.Features.Items
             SpawnItem(item, SpawnAmount);
         }
 
-        /// <summary>
-        /// Spawns an item by info.
-        /// </summary>
         public void SpawnItem(ItemInfo item, int amount = 1)
         {
             if (item == null || item.Definition == null)
@@ -174,7 +153,6 @@ namespace SewerMenu.Features.Items
 
             SafeExecute(() =>
             {
-                // Clamp amount to stack limit if needed
                 int spawnAmount = Mathf.Clamp(amount, 1, 9999);
                 
                 bool success = GameTypes.AddItemToInventory(item.Definition, spawnAmount);
@@ -190,9 +168,6 @@ namespace SewerMenu.Features.Items
             }, "spawning item");
         }
 
-        /// <summary>
-        /// Spawns an item by ID.
-        /// </summary>
         public void SpawnItemById(string itemId, int amount = 1)
         {
             var def = GameTypes.GetItemById(itemId);
@@ -216,9 +191,6 @@ namespace SewerMenu.Features.Items
             }, "spawning item by ID");
         }
 
-        /// <summary>
-        /// Gets item categories for filtering.
-        /// </summary>
         public List<string> GetCategories()
         {
             if (!_itemsCached)
