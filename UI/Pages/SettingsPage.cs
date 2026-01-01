@@ -4,7 +4,6 @@ using SewerMenu.Core;
 using SewerMenu.Core.Config;
 using SewerMenu.Core.Keybinds;
 using SewerMenu.Core.Logging;
-using SewerMenu.Utils;
 
 namespace SewerMenu.UI.Pages
 {
@@ -17,7 +16,6 @@ namespace SewerMenu.UI.Pages
         public override FeatureCategory Category => FeatureCategory.Settings;
         
         private Vector2 _keybindScrollPosition;
-        private Vector2 _debugScrollPosition;
 
         protected override void DrawContent()
         {
@@ -149,51 +147,6 @@ namespace SewerMenu.UI.Pages
             GUILayout.Label("A mod menu for Schedule I");
             DrawInfo("Total Features", FeatureManager.Instance.FeatureCount.ToString());
             DrawInfo("Enabled", FeatureManager.Instance.EnabledCount.ToString());
-            
-            // Debug Tools Section
-            DrawSection("DEBUG TOOLS");
-            
-            GUILayout.BeginHorizontal();
-            if (DrawButton("Discover Types", 110))
-            {
-                GameFinder.DiscoverGameTypes();
-            }
-            if (DrawButton("Log Player", 90))
-            {
-                GameFinder.LogPlayerComponents();
-            }
-            if (DrawButton("Clear Cache", 90))
-            {
-                GameFinder.ClearCache();
-                GameTypes.ClearCache();
-                SewerLogger.Info("Cache cleared");
-            }
-            GUILayout.EndHorizontal();
-            
-            GUILayout.Space(5);
-            
-            // Show current player status
-            var player = GameFinder.GetLocalPlayer();
-            DrawInfo("Player Found", player != null ? "Yes - " + player.name : "No");
-            
-            if (player != null)
-            {
-                var components = player.GetComponents<MonoBehaviour>();
-                
-                oldColor = GUI.contentColor;
-                GUI.contentColor = SewerSkin.TextMutedColor;
-                GUILayout.Label($"Components ({components.Length}):");
-                GUI.contentColor = oldColor;
-                
-                SewerSkin.BeginBox();
-                _debugScrollPosition = GUILayout.BeginScrollView(_debugScrollPosition, GUILayout.Height(70));
-                foreach (var comp in components)
-                {
-                    GUILayout.Label("  • " + comp.GetType().Name);
-                }
-                GUILayout.EndScrollView();
-                SewerSkin.EndBox();
-            }
         }
     }
 }

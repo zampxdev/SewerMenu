@@ -22,3 +22,8 @@ nul
 # Internal docs
 AGENTS.md
 docs/
+
+# Dev/debug files
+Utils/TypeDiscovery.cs
+inspect.ps1
+*.readme

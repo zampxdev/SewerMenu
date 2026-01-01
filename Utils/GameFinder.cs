@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reflection;
 using UnityEngine;
-using Il2CppInterop.Runtime;
 using SewerMenu.Core.Logging;
 
 namespace SewerMenu.Utils
@@ -36,111 +34,6 @@ namespace SewerMenu.Utils
         
         // Flag to track if we've done initial discovery
         private static readonly Dictionary<string, Type> _discoveredTypes = new Dictionary<string, Type>();
-        
-        #endregion
-        
-        #region Type Discovery
-        
-        /// <summary>
-        /// Discovers and caches game types. Can be called multiple times.
-        /// Uses IL2CPP-specific methods to get actual type names.
-        /// </summary>
-        public static void DiscoverGameTypes()
-        {
-            SewerLogger.Info("=== DISCOVERING GAME TYPES ===");
-            
-            try
-            {
-                var allObjects = UnityEngine.Object.FindObjectsOfType<MonoBehaviour>();
-                SewerLogger.Info($"Found {allObjects.Length} MonoBehaviours in scene");
-                
-                var typeNames = new HashSet<string>();
-                int relevantCount = 0;
-                
-                foreach (var obj in allObjects)
-                {
-                    if (obj == null) continue;
-                    
-                    // In IL2CPP, we need to get the Il2CppType to get the real type name
-                    string fullName;
-                    try
-                    {
-                        // Try to get the actual IL2CPP type name
-                        var il2cppType = Il2CppType.From(obj.GetType());
-                        fullName = il2cppType?.FullName ?? obj.GetType().FullName ?? obj.GetType().Name;
-                    }
-                    catch
-                    {
-                        // Fallback - try getting name from the object's class
-                        try
-                        {
-                            // Use GetIl2CppType() which is available on IL2CPP objects
-                            var objType = obj.GetIl2CppType();
-                            fullName = objType?.FullName ?? "Unknown";
-                        }
-                        catch
-                        {
-                            fullName = obj.GetType().FullName ?? obj.GetType().Name;
-                        }
-                    }
-                    
-                    if (string.IsNullOrEmpty(fullName) || fullName == "UnityEngine.MonoBehaviour")
-                        continue;
-                    
-                    if (!typeNames.Contains(fullName))
-                    {
-                        typeNames.Add(fullName);
-                        
-                        // Log interesting types - be more inclusive
-                        bool isRelevant = fullName.Contains("Player") || 
-                                         fullName.Contains("Money") || 
-                                         fullName.Contains("Health") || 
-                                         fullName.Contains("Level") ||
-                                         fullName.Contains("Movement") || 
-                                         fullName.Contains("Manager") ||
-                                         fullName.Contains("Controller") ||
-                                         fullName.Contains("Character") ||
-                                         fullName.Contains("Inventory") ||
-                                         fullName.Contains("Time") ||
-                                         fullName.Contains("Police") ||
-                                         fullName.Contains("Law") ||
-                                         fullName.Contains("NPC") ||
-                                         fullName.Contains("Drug") ||
-                                         fullName.Contains("Product") ||
-                                         fullName.Contains("Cash") ||
-                                         fullName.Contains("Bank") ||
-                                         fullName.Contains("XP") ||
-                                         fullName.Contains("Rank") ||
-                                         fullName.Contains("Schedule");
-                        
-                        if (isRelevant)
-                        {
-                            SewerLogger.Info($"[TYPE] {fullName}");
-                            relevantCount++;
-                        }
-                    }
-                }
-                
-                // Also log ALL unique type names to a summary
-                SewerLogger.Info($"=== DISCOVERED {relevantCount} RELEVANT TYPES out of {typeNames.Count} unique types ===");
-                
-                // Log first 50 type names for debugging
-                int count = 0;
-                foreach (var name in typeNames.OrderBy(n => n))
-                {
-                    if (count++ < 100)
-                    {
-                        SewerLogger.Debug($"[ALL] {name}");
-                    }
-                }
-                
-                // Discovery complete
-            }
-            catch (Exception ex)
-            {
-                SewerLogger.Error("Error discovering game types", ex);
-            }
-        }
         
         #endregion
         
@@ -542,74 +435,6 @@ namespace SewerMenu.Utils
         private static void MarkFailedLookup(string key)
         {
             _failedLookups.Add(key);
-        }
-        
-        #endregion
-        
-        #region Diagnostics
-        
-        /// <summary>
-        /// Logs all components on the player for debugging.
-        /// Uses IL2CPP-specific methods to get actual type names.
-        /// </summary>
-        public static void LogPlayerComponents()
-        {
-            var player = GetLocalPlayer();
-            if (player == null)
-            {
-                SewerLogger.Warning("Cannot log player components - player not found");
-                return;
-            }
-            
-            SewerLogger.Info($"=== PLAYER COMPONENTS ({player.name}) ===");
-            
-            var components = player.GetComponents<Component>();
-            foreach (var comp in components)
-            {
-                if (comp == null) continue;
-                
-                // Get IL2CPP type name
-                string typeName;
-                try
-                {
-                    var il2cppType = comp.GetIl2CppType();
-                    typeName = il2cppType?.FullName ?? comp.GetType().Name;
-                }
-                catch
-                {
-                    typeName = comp.GetType().Name;
-                }
-                
-                SewerLogger.Info($"[COMPONENT] {typeName}");
-            }
-            
-            // Also check children
-            SewerLogger.Info("=== CHILD COMPONENTS ===");
-            var childComps = player.GetComponentsInChildren<MonoBehaviour>(true);
-            var logged = new HashSet<string>();
-            foreach (var comp in childComps)
-            {
-                if (comp == null) continue;
-                
-                string typeName;
-                try
-                {
-                    var il2cppType = comp.GetIl2CppType();
-                    typeName = il2cppType?.FullName ?? comp.GetType().Name;
-                }
-                catch
-                {
-                    typeName = comp.GetType().Name;
-                }
-                
-                if (!logged.Contains(typeName) && typeName != "UnityEngine.MonoBehaviour")
-                {
-                    logged.Add(typeName);
-                    SewerLogger.Info($"[CHILD] {typeName}");
-                }
-            }
-            
-            SewerLogger.Info("=== END PLAYER COMPONENTS ===");
         }
         
         #endregion
