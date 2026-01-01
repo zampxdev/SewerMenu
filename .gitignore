@@ -18,3 +18,7 @@ nul
 
 # Archives
 *.zip
+
+# Internal docs
+AGENTS.md
+docs/
