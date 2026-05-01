@@ -7,7 +7,7 @@ This is the first pushed 2.0 beta branch build for Schedule I `0.4.5f2`.
 ### Added
 
 - Modern 2.0 menu shell with animated tab transitions, smoother toggles, favorites, quick actions, and feature inspector panel.
-- Command palette entry point from the header and `Ctrl+K`.
+- Reworked Ctrl+K command palette that can open from gameplay, toggle features, inspect matches, and spawn matching items.
 - Animation quality setting with Auto/Balanced/Low behavior.
 - Menu input lock to stop game hotbar scrolling while the menu is open.
 - Full item spawner fuzzy search with category filtering and cached search entries.

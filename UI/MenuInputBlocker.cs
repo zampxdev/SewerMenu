@@ -35,8 +35,9 @@ namespace SewerMenu.UI
 
         public void Update()
         {
-            bool shouldLock = MenuController.Instance.IsVisible &&
-                              (ConfigManager.Instance.Config?.UI?.LockGameInputWhenMenuOpen ?? true);
+            bool shouldLock = MenuController.Instance.IsModalInputSurfaceVisible ||
+                              (MenuController.Instance.IsVisible &&
+                               (ConfigManager.Instance.Config?.UI?.LockGameInputWhenMenuOpen ?? true));
 
             if (!shouldLock)
             {

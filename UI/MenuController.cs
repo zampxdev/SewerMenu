@@ -5,6 +5,7 @@ using SewerMenu.Core;
 using SewerMenu.Core.Logging;
 using SewerMenu.Core.Config;
 using SewerMenu.Features.Base;
+using SewerMenu.Features.Items;
 using SewerMenu.UI.Pages;
 using SewerMenu.UI.Windows;
 using SewerMenu.Utils;
@@ -49,12 +50,18 @@ namespace SewerMenu.UI
         private float _tabAnim = 1f;
         private bool _isDragging = false;
         private Vector2 _dragOffset;
+        private bool _inputCaptureWasActive = false;
         private bool _commandPaletteVisible = false;
         private string _commandQuery = "";
+        private string _lastCommandQuery = null;
         private int _commandSelectedIndex = 0;
+        private float _commandAnim = 1f;
+        private CommandIntent _commandIntent = CommandIntent.None;
+        private CommandQuantityMode _commandQuantityMode = CommandQuantityMode.Exact;
+        private int _commandQuantity = 1;
         private string _selectedFeatureId = "";
         private int _pendingTabIndex = -1;
-        private readonly List<IFeature> _commandResults = new List<IFeature>();
+        private readonly List<CommandResult> _commandResults = new List<CommandResult>(14);
 
         // Resize state
         private bool _isResizing = false;
@@ -87,7 +94,8 @@ namespace SewerMenu.UI
         #region Properties
 
         public bool IsVisible => _isVisible;
-        public bool IsCapturingInput => _isVisible;
+        public bool IsCapturingInput => _isVisible || _commandPaletteVisible || ItemSpawnerWindow.Instance.IsVisible;
+        public bool IsModalInputSurfaceVisible => _commandPaletteVisible || ItemSpawnerWindow.Instance.IsVisible;
         public Rect WindowRect => _windowRect;
 
         #endregion
@@ -151,6 +159,7 @@ namespace SewerMenu.UI
             // Disable player camera to stop mouse look
             DisablePlayerCamera();
             MenuInputBlocker.Instance.Update();
+            _inputCaptureWasActive = true;
 
             SewerLogger.Info("Menu opened");
         }
@@ -160,13 +169,15 @@ namespace SewerMenu.UI
             if (!_isVisible) return;
             _isVisible = false;
 
-            // Re-enable player camera
-            MenuInputBlocker.Instance.Release();
-            EnablePlayerCamera();
+            if (!IsCapturingInput)
+            {
+                MenuInputBlocker.Instance.Release();
+                EnablePlayerCamera();
 
-            // Restore cursor
-            Cursor.lockState = CursorLockMode.Locked;
-            Cursor.visible = false;
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+                _inputCaptureWasActive = false;
+            }
 
             SaveWindowState();
             SewerLogger.Info("Menu closed");
@@ -248,15 +259,31 @@ namespace SewerMenu.UI
 
         public void Update()
         {
-            if (!_isVisible) return;
-
             try
             {
-                // Force cursor state every frame when menu is open
+                if ((Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) && Input.GetKeyDown(KeyCode.K))
+                {
+                    ToggleCommandPalette();
+                    return;
+                }
+
+                if (!IsCapturingInput)
+                {
+                    MenuInputBlocker.Instance.Update();
+                    if (_inputCaptureWasActive)
+                    {
+                        EnablePlayerCamera();
+                        Cursor.lockState = CursorLockMode.Locked;
+                        Cursor.visible = false;
+                        _inputCaptureWasActive = false;
+                    }
+                    return;
+                }
+
+                _inputCaptureWasActive = true;
                 Cursor.lockState = CursorLockMode.None;
                 Cursor.visible = true;
 
-                // Keep camera disabled while menu is open
                 if (_playerCamera != null && _playerCamera.enabled)
                 {
                     _playerCamera.enabled = false;
@@ -264,20 +291,13 @@ namespace SewerMenu.UI
 
                 MenuInputBlocker.Instance.Update();
 
-                if ((Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) && Input.GetKeyDown(KeyCode.K))
-                {
-                    ToggleCommandPalette();
-                    return;
-                }
-
                 if (_commandPaletteVisible && Input.GetKeyDown(KeyCode.Escape))
                 {
-                    _commandPaletteVisible = false;
+                    CloseCommandPalette();
                     return;
                 }
 
-                // Escape to close
-                if (Input.GetKeyDown(KeyCode.Escape))
+                if (_isVisible && Input.GetKeyDown(KeyCode.Escape))
                 {
                     Hide();
                 }
@@ -294,9 +314,14 @@ namespace SewerMenu.UI
 
         public void OnGUI()
         {
-            if (!_initialized || !_isVisible) return;
+            if (!_initialized) return;
 
-            // Initialize skin
+            bool drawMainMenu = _isVisible;
+            bool drawCommandPalette = _commandPaletteVisible;
+            bool drawItemSpawner = ItemSpawnerWindow.Instance.IsVisible;
+            bool drawToasts = ToastManager.HasActiveToasts;
+            if (!drawMainMenu && !drawCommandPalette && !drawItemSpawner && !drawToasts) return;
+
             SewerSkin.BeginUI();
             SewerSkin.SetAnimationQuality(ConfigManager.Instance.Config?.UI?.AnimationQuality);
             ApplyDeferredGuiChanges();
@@ -304,49 +329,58 @@ namespace SewerMenu.UI
             float animStrength = SewerSkin.AnimationStrength;
             _openAnim = animStrength < 0.25f ? 1f : Mathf.MoveTowards(_openAnim, 1f, uiDelta * Mathf.Lerp(14f, 8f, animStrength));
             _tabAnim = animStrength < 0.25f ? 1f : Mathf.MoveTowards(_tabAnim, 1f, uiDelta * Mathf.Lerp(16f, 10f, animStrength));
+            _commandAnim = !drawCommandPalette || animStrength < 0.25f ? 1f : Mathf.MoveTowards(_commandAnim, 1f, uiDelta * Mathf.Lerp(18f, 10f, animStrength));
 
-            // Handle resize BEFORE drawing window
-            HandleResize();
-
-            // Clamp window to screen
-            _windowRect.x = Mathf.Clamp(_windowRect.x, 0, Screen.width - 100);
-            _windowRect.y = Mathf.Clamp(_windowRect.y, 0, Screen.height - 100);
-            _windowRect.width = Mathf.Clamp(_windowRect.width, MinWidth, MaxWidth);
-            _windowRect.height = Mathf.Clamp(_windowRect.height, MinHeight, MaxHeight);
-
-            Rect drawRect = GetAnimatedWindowRect();
-            HandleWindowDrag(drawRect);
-            HandleSmoothScrollInput(drawRect);
-            drawRect = GetAnimatedWindowRect();
-
-            var oldColor = GUI.color;
-            GUI.color = new Color(oldColor.r, oldColor.g, oldColor.b, Mathf.Lerp(0.78f, 1f, _openAnim));
-            SewerSkin.DrawWindowPanel(drawRect);
-
-            Rect contentRect = new Rect(drawRect.x + 10f, drawRect.y + 8f, drawRect.width - 20f, drawRect.height - 16f);
-            GUILayout.BeginArea(contentRect);
-            try
+            if (drawMainMenu)
             {
-                DrawWindowContent();
+                HandleResize();
+
+                _windowRect.x = Mathf.Clamp(_windowRect.x, 0, Screen.width - 100);
+                _windowRect.y = Mathf.Clamp(_windowRect.y, 0, Screen.height - 100);
+                _windowRect.width = Mathf.Clamp(_windowRect.width, MinWidth, MaxWidth);
+                _windowRect.height = Mathf.Clamp(_windowRect.height, MinHeight, MaxHeight);
+
+                Rect drawRect = GetAnimatedWindowRect();
+                HandleWindowDrag(drawRect);
+                HandleSmoothScrollInput(drawRect);
+                drawRect = GetAnimatedWindowRect();
+
+                var oldColor = GUI.color;
+                GUI.color = new Color(oldColor.r, oldColor.g, oldColor.b, Mathf.Lerp(0.78f, 1f, _openAnim));
+                SewerSkin.DrawWindowPanel(drawRect);
+
+                Rect contentRect = new Rect(drawRect.x + 10f, drawRect.y + 8f, drawRect.width - 20f, drawRect.height - 16f);
+                GUILayout.BeginArea(contentRect);
+                try
+                {
+                    DrawWindowContent();
+                }
+                catch (Exception ex)
+                {
+                    SewerSkin.DrawStatus("Error: " + ex.Message, SewerSkin.StatusType.Error);
+                }
+                GUILayout.EndArea();
+                GUI.color = oldColor;
+
+                DrawResizeGrip();
             }
-            catch (Exception ex)
+
+            if (drawCommandPalette)
             {
-                SewerSkin.DrawStatus("Error: " + ex.Message, SewerSkin.StatusType.Error);
+                DrawCommandPalette();
             }
-            GUILayout.EndArea();
-            GUI.color = oldColor;
 
-            // Draw resize grip on top of window
-            DrawResizeGrip();
-
-            // Draw popup windows (ItemSpawner, etc.)
-            ItemSpawnerWindow.Instance.OnGUI();
-
-            DrawCommandPalette(drawRect);
             ToastManager.Draw();
-            MenuInputBlocker.Instance.ConsumeCurrentGuiEvent();
-
+            if (IsCapturingInput)
+            {
+                MenuInputBlocker.Instance.ConsumeCurrentGuiEvent();
+            }
             SewerSkin.EndUI();
+
+            if (drawItemSpawner)
+            {
+                ItemSpawnerWindow.Instance.OnGUI();
+            }
         }
 
         private bool _isHoveringResize = false;
@@ -566,10 +600,19 @@ namespace SewerMenu.UI
             // Version badge background
             float badgeWidth = isBetaBuild ? 56 : 74;
             Rect badgeRect = new Rect(headerRect.x + headerRect.width - badgeWidth - 12, headerRect.y + 18, badgeWidth, 22);
-            Rect searchRect = new Rect(badgeRect.x - 108f, headerRect.y + 15f, 96f, 28f);
-            if (SewerSkin.DrawButtonRect(searchRect, "Search", SewerSkin.ButtonColor, SewerSkin.ButtonHoverColor, SewerSkin.TextColor, 6, false, 11))
+            Rect commandHintRect = new Rect(Mathf.Max(headerRect.x + 310f, badgeRect.x - 188f), headerRect.y + 16f, 172f, 26f);
+            if (commandHintRect.xMax < badgeRect.x - 8f)
             {
-                OpenCommandPalette();
+                bool hintHovered = commandHintRect.Contains(Event.current.mousePosition);
+                SewerSkin.DrawRoundedRect(commandHintRect, new Color(0.052f, 0.066f, 0.061f, hintHovered ? 0.96f : 0.78f), new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, hintHovered ? 0.58f : 0.36f), 7, 1);
+                GUI.contentColor = SewerSkin.AccentGlow;
+                GUI.Label(new Rect(commandHintRect.x + 9f, commandHintRect.y + 5f, 43f, 16f), "Ctrl+K", SewerSkin.GetLabelStyle(10, FontStyle.Bold, TextAnchor.MiddleLeft));
+                GUI.contentColor = SewerSkin.TextMutedColor;
+                GUI.Label(new Rect(commandHintRect.x + 56f, commandHintRect.y + 5f, commandHintRect.width - 65f, 16f), "Command Palette", SewerSkin.GetLabelStyle(10, FontStyle.Normal, TextAnchor.MiddleLeft));
+                if (IsRectClicked(commandHintRect))
+                {
+                    OpenCommandPalette();
+                }
             }
             SewerSkin.DrawRoundedRect(badgeRect, new Color(SewerSkin.AccentColor.r, SewerSkin.AccentColor.g, SewerSkin.AccentColor.b, 0.16f), new Color(SewerSkin.AccentColor.r, SewerSkin.AccentColor.g, SewerSkin.AccentColor.b, 0.38f), 5, 1);
 
@@ -870,13 +913,8 @@ namespace SewerMenu.UI
                 GUI.contentColor = SewerSkin.AccentGlow;
                 GUILayout.Label("INSPECTOR", SewerSkin.GetLabelStyle(12, FontStyle.Bold));
                 GUI.contentColor = SewerSkin.TextMutedColor;
-                GUILayout.Label("Select a favorite, active feature, or command result to inspect it.", SewerSkin.GetLabelStyle(10));
+                GUILayout.Label("Select a favorite or active feature to inspect it.", SewerSkin.GetLabelStyle(10));
                 GUI.contentColor = Color.white;
-                GUILayout.Space(8);
-                if (SewerSkin.DrawButton("Open Command Palette"))
-                {
-                    OpenCommandPalette();
-                }
                 GUILayout.EndArea();
                 return;
             }
@@ -964,86 +1002,153 @@ namespace SewerMenu.UI
 
         #region Helpers
 
-        private void DrawCommandPalette(Rect ownerRect)
+        private void DrawCommandPalette()
         {
-            if (!_commandPaletteVisible) return;
+            Rect overlay = new Rect(0f, 0f, Screen.width, Screen.height);
+            SewerSkin.DrawSolid(overlay, new Color(0f, 0f, 0f, _isVisible ? 0.28f : 0.42f));
+
+            BuildCommandResultsIfNeeded();
+
+            float width = Mathf.Min(660f, Screen.width - 80f);
+            int resultCount = Mathf.Min(10, _commandResults.Count);
+            float resultHeight = resultCount > 0 ? resultCount * 50f + 8f : 78f;
+            float height = Mathf.Clamp(126f + resultHeight + 30f, 240f, Mathf.Min(680f, Screen.height - 92f));
+            float y = 48f - (1f - _commandAnim) * 18f;
+            Rect panel = new Rect((Screen.width - width) * 0.5f, y, width, height);
+
+            Event e = Event.current;
+            if (e != null && e.type == EventType.MouseDown && !panel.Contains(e.mousePosition))
+            {
+                CloseCommandPalette();
+                e.Use();
+                return;
+            }
 
             HandleCommandPaletteEvents();
-            BuildCommandResults();
 
-            Rect overlay = new Rect(0f, 0f, Screen.width, Screen.height);
-            SewerSkin.DrawSolid(overlay, new Color(0f, 0f, 0f, 0.34f));
-
-            float width = Mathf.Min(560f, Screen.width - 80f);
-            Rect panel = new Rect((Screen.width - width) * 0.5f, Mathf.Max(70f, ownerRect.y + 48f), width, 384f);
             SewerSkin.DrawWindowPanel(panel);
+            Rect inner = new Rect(panel.x + 16f, panel.y + 14f, panel.width - 32f, panel.height - 28f);
 
-            Rect inner = new Rect(panel.x + 14f, panel.y + 14f, panel.width - 28f, panel.height - 28f);
-            GUILayout.BeginArea(inner);
-
+            var oldContentColor = GUI.contentColor;
             GUI.contentColor = SewerSkin.AccentGlow;
-            GUILayout.Label("COMMAND PALETTE", SewerSkin.GetLabelStyle(12, FontStyle.Bold));
+            GUI.Label(new Rect(inner.x, inner.y, 210f, 18f), "COMMAND PALETTE", SewerSkin.GetLabelStyle(12, FontStyle.Bold, TextAnchor.MiddleLeft));
             GUI.contentColor = SewerSkin.TextMutedColor;
-            GUILayout.Label("Type a feature name, then press Enter or click a result.", SewerSkin.GetLabelStyle(10));
-            GUILayout.Space(8);
+            GUI.Label(new Rect(inner.x + inner.width - 190f, inner.y, 190f, 18f), "Ctrl+K open  |  Esc close", SewerSkin.GetLabelStyle(10, FontStyle.Normal, TextAnchor.MiddleRight));
 
-            Rect queryRect = GUILayoutUtility.GetRect(0, 36, GUILayout.ExpandWidth(true));
-            SewerSkin.DrawRoundedRect(queryRect, new Color(0.045f, 0.058f, 0.052f, 0.96f), new Color(SewerSkin.AccentColor.r, SewerSkin.AccentColor.g, SewerSkin.AccentColor.b, 0.46f), 7, 1);
-            GUI.contentColor = string.IsNullOrEmpty(_commandQuery) ? SewerSkin.TextMutedColor : SewerSkin.TextColor;
-            GUI.Label(new Rect(queryRect.x + 12f, queryRect.y + 8f, queryRect.width - 24f, 20f), string.IsNullOrEmpty(_commandQuery) ? "Search features..." : _commandQuery, SewerSkin.GetLabelStyle(13, FontStyle.Bold));
-            GUI.contentColor = Color.white;
-            GUILayout.Space(8);
+            Rect queryRect = new Rect(inner.x, inner.y + 26f, inner.width, 40f);
+            bool focused = true;
+            SewerSkin.DrawRoundedRect(queryRect, new Color(0.043f, 0.057f, 0.052f, 0.98f), new Color(SewerSkin.AccentColor.r, SewerSkin.AccentColor.g, SewerSkin.AccentColor.b, focused ? 0.58f : 0.38f), 8, 1);
 
+            string display = string.IsNullOrWhiteSpace(_commandQuery)
+                ? "Enable features or spawn items, e.g. god mode, infinite ammo, weed 5..."
+                : _commandQuery;
+            GUI.contentColor = string.IsNullOrWhiteSpace(_commandQuery) ? SewerSkin.TextMutedColor : SewerSkin.TextColor;
+            GUI.Label(new Rect(queryRect.x + 14f, queryRect.y + 9f, queryRect.width - 28f, 22f), display, SewerSkin.GetLabelStyle(13, FontStyle.Bold, TextAnchor.MiddleLeft));
+
+            if (Mathf.FloorToInt(Time.unscaledTime * 2.8f) % 2 == 0)
+            {
+                var queryStyle = SewerSkin.GetLabelStyle(13, FontStyle.Bold, TextAnchor.MiddleLeft);
+                float caretX = queryRect.x + 14f + Mathf.Min(queryRect.width - 38f, queryStyle.CalcSize(new GUIContent(_commandQuery ?? "")).x);
+                SewerSkin.DrawSolid(new Rect(caretX, queryRect.y + 10f, 1f, queryRect.height - 20f), SewerSkin.AccentGlow);
+            }
+
+            DrawCommandMeta(new Rect(inner.x, queryRect.yMax + 8f, inner.width, 22f));
+
+            Rect resultsRect = new Rect(inner.x, queryRect.yMax + 38f, inner.width, inner.yMax - queryRect.yMax - 72f);
             if (_commandResults.Count == 0)
             {
-                SewerSkin.DrawEmptyState("No matches", "Try another feature name or category.", SewerSkin.StatusType.Warning);
+                DrawCommandEmptyState(resultsRect);
             }
             else
             {
-                int maxResults = Mathf.Min(8, _commandResults.Count);
-                for (int i = 0; i < maxResults; i++)
+                float rowY = resultsRect.y;
+                int visibleCount = Mathf.Min(_commandResults.Count, Mathf.FloorToInt(resultsRect.height / 50f));
+                for (int i = 0; i < visibleCount; i++)
                 {
-                    DrawCommandResult(_commandResults[i], i);
-                    GUILayout.Space(4);
+                    DrawCommandResult(new Rect(resultsRect.x, rowY, resultsRect.width, 44f), _commandResults[i], i);
+                    rowY += 50f;
                 }
             }
 
-            GUILayout.FlexibleSpace();
             GUI.contentColor = SewerSkin.TextMutedColor;
-            GUILayout.Label("Ctrl+K open  |  Enter run  |  Esc close", SewerSkin.GetLabelStyle(10, FontStyle.Normal, TextAnchor.MiddleCenter));
-            GUI.contentColor = Color.white;
-
-            GUILayout.EndArea();
+            GUI.Label(new Rect(inner.x, inner.yMax - 20f, inner.width, 16f), "Enter runs selected  |  Up/Down choose  |  Type item quantity at the end to spawn stacks faster", SewerSkin.GetLabelStyle(10, FontStyle.Normal, TextAnchor.MiddleCenter));
+            GUI.contentColor = oldContentColor;
         }
 
-        private void DrawCommandResult(IFeature feature, int index)
+        private void DrawCommandMeta(Rect rect)
         {
-            Rect rect = GUILayoutUtility.GetRect(0, 38, GUILayout.ExpandWidth(true));
+            var oldContentColor = GUI.contentColor;
+            float x = rect.x;
+
+            DrawCommandPill(new Rect(x, rect.y, 92f, rect.height), _commandIntent == CommandIntent.Spawn || _commandIntent == CommandIntent.Item ? "ITEM MODE" : "SMART MODE", SewerSkin.AccentColor);
+            x += 98f;
+
+            string quantityText = _commandQuantityMode == CommandQuantityMode.Stack
+                ? "STACK SIZE"
+                : "QTY " + Mathf.Clamp(_commandQuantity, 1, 9999);
+            DrawCommandPill(new Rect(x, rect.y, 92f, rect.height), quantityText, SewerSkin.TextMutedColor);
+
+            GUI.contentColor = oldContentColor;
+        }
+
+        private static void DrawCommandPill(Rect rect, string text, Color accent)
+        {
+            SewerSkin.DrawRoundedRect(rect, new Color(accent.r, accent.g, accent.b, 0.12f), new Color(accent.r, accent.g, accent.b, 0.36f), 7, 1);
+            var oldContentColor = GUI.contentColor;
+            GUI.contentColor = accent;
+            GUI.Label(rect, text, SewerSkin.GetLabelStyle(9, FontStyle.Bold, TextAnchor.MiddleCenter));
+            GUI.contentColor = oldContentColor;
+        }
+
+        private void DrawCommandEmptyState(Rect rect)
+        {
+            SewerSkin.DrawRoundedRect(rect, new Color(0.035f, 0.046f, 0.043f, 0.72f), new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.34f), 8, 1);
+            var oldContentColor = GUI.contentColor;
+            GUI.contentColor = SewerSkin.TextColor;
+            GUI.Label(new Rect(rect.x + 18f, rect.y + 18f, rect.width - 36f, 20f), "No command matches", SewerSkin.GetLabelStyle(13, FontStyle.Bold, TextAnchor.MiddleCenter));
+            GUI.contentColor = SewerSkin.TextMutedColor;
+            GUI.Label(new Rect(rect.x + 18f, rect.y + 42f, rect.width - 36f, 18f), "Try a feature name or item name, like esp, god, cash, weed 5, or lockpick stack.", SewerSkin.GetLabelStyle(10, FontStyle.Normal, TextAnchor.MiddleCenter));
+            GUI.contentColor = oldContentColor;
+        }
+
+        private void DrawCommandResult(Rect rect, CommandResult result, int index)
+        {
             bool selected = index == _commandSelectedIndex;
             bool hovered = rect.Contains(Event.current.mousePosition);
+            Color accent = result.Kind == CommandResultKind.Item ? SewerSkin.WarningColor : SewerSkin.AccentColor;
             Color fill = selected
-                ? new Color(SewerSkin.AccentColor.r, SewerSkin.AccentColor.g, SewerSkin.AccentColor.b, 0.18f)
-                : new Color(0.055f, 0.069f, 0.064f, hovered ? 0.94f : 0.72f);
+                ? new Color(accent.r, accent.g, accent.b, 0.18f)
+                : new Color(0.047f, 0.061f, 0.057f, hovered ? 0.95f : 0.78f);
             Color border = selected
-                ? new Color(SewerSkin.AccentGlow.r, SewerSkin.AccentGlow.g, SewerSkin.AccentGlow.b, 0.62f)
-                : new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, hovered ? 0.52f : 0.28f);
+                ? new Color(accent.r, accent.g, accent.b, 0.62f)
+                : new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, hovered ? 0.54f : 0.30f);
 
-            SewerSkin.DrawRoundedRect(rect, fill, border, 7, 1);
+            SewerSkin.DrawRoundedRect(rect, fill, border, 8, 1);
+            if (selected)
+            {
+                SewerSkin.DrawSoftGlow(rect, accent, 0.08f, 7);
+            }
+
+            Rect badgeRect = new Rect(rect.x + 10f, rect.y + 10f, 62f, 24f);
+            SewerSkin.DrawRoundedRect(badgeRect, new Color(accent.r, accent.g, accent.b, 0.14f), new Color(accent.r, accent.g, accent.b, 0.42f), 7, 1);
 
             var oldContentColor = GUI.contentColor;
-            GUI.contentColor = selected ? SewerSkin.AccentGlow : SewerSkin.TextColor;
-            GUI.Label(new Rect(rect.x + 10f, rect.y + 4f, rect.width - 120f, 18f), feature.Name, SewerSkin.GetLabelStyle(11, FontStyle.Bold));
+            GUI.contentColor = accent;
+            GUI.Label(badgeRect, result.Badge, SewerSkin.GetLabelStyle(9, FontStyle.Bold, TextAnchor.MiddleCenter));
+
+            GUI.contentColor = SewerSkin.TextColor;
+            GUI.Label(new Rect(rect.x + 82f, rect.y + 5f, rect.width - 212f, 18f), result.Title, SewerSkin.GetLabelStyle(12, FontStyle.Bold, TextAnchor.MiddleLeft));
             GUI.contentColor = SewerSkin.TextMutedColor;
-            GUI.Label(new Rect(rect.x + 10f, rect.y + 20f, rect.width - 120f, 14f), feature.Category + " - " + (feature.IsToggleable ? (feature.IsEnabled ? "enabled" : "off") : "action"), SewerSkin.GetLabelStyle(9));
-            GUI.contentColor = feature.IsEnabled ? SewerSkin.SuccessColor : SewerSkin.TextMutedColor;
-            GUI.Label(new Rect(rect.x + rect.width - 102f, rect.y + 10f, 92f, 18f), feature.IsToggleable ? (feature.IsEnabled ? "ACTIVE" : "TOGGLE") : "OPEN", SewerSkin.GetLabelStyle(10, FontStyle.Bold, TextAnchor.MiddleRight));
+            GUI.Label(new Rect(rect.x + 82f, rect.y + 23f, rect.width - 212f, 16f), result.Subtitle, SewerSkin.GetLabelStyle(9, FontStyle.Normal, TextAnchor.MiddleLeft));
+
+            GUI.contentColor = selected ? SewerSkin.AccentGlow : SewerSkin.TextMutedColor;
+            GUI.Label(new Rect(rect.x + rect.width - 118f, rect.y + 12f, 104f, 18f), result.ActionLabel, SewerSkin.GetLabelStyle(10, FontStyle.Bold, TextAnchor.MiddleRight));
             GUI.contentColor = oldContentColor;
 
             if (IsRectClicked(rect))
             {
                 _commandSelectedIndex = index;
-                ActivateFeature(feature);
-                _commandPaletteVisible = false;
+                ExecuteCommandResult(result);
             }
         }
 
@@ -1054,19 +1159,14 @@ namespace SewerMenu.UI
 
             if (e.keyCode == KeyCode.Escape)
             {
-                _commandPaletteVisible = false;
+                CloseCommandPalette();
                 e.Use();
                 return;
             }
 
             if (e.keyCode == KeyCode.Return || e.keyCode == KeyCode.KeypadEnter)
             {
-                if (_commandResults.Count > 0)
-                {
-                    int index = Mathf.Clamp(_commandSelectedIndex, 0, _commandResults.Count - 1);
-                    ActivateFeature(_commandResults[index]);
-                    _commandPaletteVisible = false;
-                }
+                ExecuteSelectedCommand();
                 e.Use();
                 return;
             }
@@ -1085,11 +1185,27 @@ namespace SewerMenu.UI
                 return;
             }
 
+            bool control = e.control || e.command;
+            if (control && e.keyCode == KeyCode.V)
+            {
+                AppendCommandText(GUIUtility.systemCopyBuffer);
+                e.Use();
+                return;
+            }
+
+            if (control && e.keyCode == KeyCode.K)
+            {
+                CloseCommandPalette();
+                e.Use();
+                return;
+            }
+
             if (e.keyCode == KeyCode.Backspace)
             {
                 if (_commandQuery.Length > 0)
                 {
                     _commandQuery = _commandQuery.Substring(0, _commandQuery.Length - 1);
+                    _lastCommandQuery = null;
                     _commandSelectedIndex = 0;
                 }
                 e.Use();
@@ -1099,31 +1215,55 @@ namespace SewerMenu.UI
             if (e.keyCode == KeyCode.Delete)
             {
                 _commandQuery = "";
+                _lastCommandQuery = null;
                 _commandSelectedIndex = 0;
                 e.Use();
                 return;
             }
 
             char c = e.character;
-            if (!char.IsControl(c) && _commandQuery.Length < 40)
+            if (!char.IsControl(c) && _commandQuery.Length < 64)
             {
-                _commandQuery += c;
-                _commandSelectedIndex = 0;
+                AppendCommandText(c.ToString());
                 e.Use();
             }
         }
 
-        private void BuildCommandResults()
+        private void AppendCommandText(string text)
         {
-            _commandResults.Clear();
-            string query = (_commandQuery ?? "").Trim().ToLowerInvariant();
+            if (string.IsNullOrEmpty(text)) return;
 
-            foreach (var feature in FeatureManager.Instance.AllFeatures)
+            var buffer = new char[text.Length];
+            int count = 0;
+            for (int i = 0; i < text.Length && _commandQuery.Length + count < 64; i++)
             {
-                if (string.IsNullOrEmpty(query) || MatchesCommand(feature, query))
-                {
-                    _commandResults.Add(feature);
-                }
+                char c = text[i];
+                if (char.IsControl(c)) continue;
+                buffer[count++] = c;
+            }
+
+            if (count == 0) return;
+
+            _commandQuery = (_commandQuery + new string(buffer, 0, count)).TrimStart();
+            _lastCommandQuery = null;
+            _commandSelectedIndex = 0;
+        }
+
+        private void BuildCommandResultsIfNeeded()
+        {
+            if (_lastCommandQuery == _commandQuery) return;
+
+            _lastCommandQuery = _commandQuery;
+            _commandResults.Clear();
+
+            string searchQuery = ParseCommandInput(_commandQuery);
+            BuildFeatureCommandResults(searchQuery);
+            BuildItemCommandResults(searchQuery);
+
+            _commandResults.Sort((a, b) => b.Score.CompareTo(a.Score));
+            if (_commandResults.Count > 14)
+            {
+                _commandResults.RemoveRange(14, _commandResults.Count - 14);
             }
 
             if (_commandSelectedIndex >= _commandResults.Count)
@@ -1132,29 +1272,406 @@ namespace SewerMenu.UI
             }
         }
 
-        private bool MatchesCommand(IFeature feature, string query)
+        private string ParseCommandInput(string rawInput)
         {
-            if (feature == null) return false;
-            if ((feature.Name ?? "").ToLowerInvariant().Contains(query)) return true;
-            if ((feature.Id ?? "").ToLowerInvariant().Contains(query)) return true;
-            if (feature.Category.ToString().ToLowerInvariant().Contains(query)) return true;
-            if ((feature.Description ?? "").ToLowerInvariant().Contains(query)) return true;
-            return false;
+            _commandIntent = CommandIntent.None;
+            _commandQuantityMode = CommandQuantityMode.Exact;
+            _commandQuantity = 1;
+
+            string query = (rawInput ?? "").Trim();
+            string lower = query.ToLowerInvariant();
+
+            if (TryStripCommandPrefix(ref query, ref lower, "spawn ", CommandIntent.Spawn) ||
+                TryStripCommandPrefix(ref query, ref lower, "item ", CommandIntent.Item) ||
+                TryStripCommandPrefix(ref query, ref lower, "give ", CommandIntent.Spawn) ||
+                TryStripCommandPrefix(ref query, ref lower, "enable ", CommandIntent.Enable) ||
+                TryStripCommandPrefix(ref query, ref lower, "disable ", CommandIntent.Disable) ||
+                TryStripCommandPrefix(ref query, ref lower, "toggle ", CommandIntent.Toggle) ||
+                TryStripCommandPrefix(ref query, ref lower, "open ", CommandIntent.Open))
+            {
+                query = query.Trim();
+            }
+
+            if (TryParseTrailingQuantity(query, out string itemQuery, out CommandQuantityMode mode, out int quantity))
+            {
+                query = itemQuery;
+                _commandQuantityMode = mode;
+                _commandQuantity = quantity;
+            }
+
+            return query.Trim();
+        }
+
+        private bool TryStripCommandPrefix(ref string query, ref string lower, string prefix, CommandIntent intent)
+        {
+            if (!lower.StartsWith(prefix, StringComparison.Ordinal)) return false;
+            query = query.Substring(prefix.Length).TrimStart();
+            lower = query.ToLowerInvariant();
+            _commandIntent = intent;
+            return true;
+        }
+
+        private static bool TryParseTrailingQuantity(string rawValue, out string query, out CommandQuantityMode mode, out int quantity)
+        {
+            query = rawValue?.Trim() ?? "";
+            mode = CommandQuantityMode.Exact;
+            quantity = 1;
+
+            int split = query.LastIndexOf(' ');
+            if (split <= 0 || split >= query.Length - 1) return false;
+
+            string token = query.Substring(split + 1).Trim();
+            string lowered = token.ToLowerInvariant();
+            string itemQuery = query.Substring(0, split).Trim();
+            if (string.IsNullOrEmpty(itemQuery)) return false;
+
+            if (lowered == "max")
+            {
+                query = itemQuery;
+                quantity = 9999;
+                return true;
+            }
+
+            if (lowered == "stack")
+            {
+                query = itemQuery;
+                mode = CommandQuantityMode.Stack;
+                return true;
+            }
+
+            string numeric = lowered;
+            if (numeric.StartsWith("x", StringComparison.Ordinal) || numeric.StartsWith("*", StringComparison.Ordinal))
+            {
+                numeric = numeric.Substring(1);
+            }
+            else if (numeric.StartsWith("qty:", StringComparison.Ordinal) || numeric.StartsWith("qty=", StringComparison.Ordinal))
+            {
+                numeric = numeric.Substring(4);
+            }
+            else if (numeric.StartsWith("qty", StringComparison.Ordinal))
+            {
+                numeric = numeric.Substring(3);
+            }
+
+            if (!int.TryParse(numeric, out int parsed)) return false;
+
+            query = itemQuery;
+            quantity = Mathf.Clamp(parsed, 1, 9999);
+            return true;
+        }
+
+        private void BuildFeatureCommandResults(string searchQuery)
+        {
+            bool itemOnly = _commandIntent == CommandIntent.Spawn || _commandIntent == CommandIntent.Item;
+            if (itemOnly && !string.IsNullOrWhiteSpace(searchQuery)) return;
+
+            foreach (var feature in FeatureManager.Instance.AllFeatures)
+            {
+                if (feature == null) continue;
+
+                int score = ScoreCommandMatch(feature.Name, feature.Id, feature.Category.ToString(), feature.Description, searchQuery);
+                if (score <= 0) continue;
+
+                var action = GetFeatureAction(feature);
+                string actionVerb = GetFeatureActionVerb(action, feature);
+                string state = feature.IsToggleable ? (feature.IsEnabled ? "enabled" : "off") : "action";
+                string subtitle = feature.Category + " - " + state + " - " + (feature.Description ?? "");
+
+                _commandResults.Add(new CommandResult
+                {
+                    Kind = CommandResultKind.Feature,
+                    Feature = feature,
+                    FeatureAction = action,
+                    Title = actionVerb + " " + feature.Name,
+                    Subtitle = TrimForCommand(subtitle, 96),
+                    Badge = feature.IsToggleable ? (feature.IsEnabled ? "ON" : "OFF") : "ACTION",
+                    ActionLabel = actionVerb.ToUpperInvariant(),
+                    Score = score + GetIntentScoreBoost(CommandResultKind.Feature)
+                });
+            }
+        }
+
+        private void BuildItemCommandResults(string searchQuery)
+        {
+            bool itemIntent = _commandIntent == CommandIntent.Spawn || _commandIntent == CommandIntent.Item;
+            if (!itemIntent && (searchQuery ?? "").Trim().Length < 2) return;
+
+            var spawner = FeatureManager.Instance.GetFeature<ItemSpawner>("itemspawner");
+            if (spawner == null) return;
+
+            List<ItemSpawner.ItemInfo> items;
+            try
+            {
+                items = spawner.GetAllItems();
+            }
+            catch (Exception ex)
+            {
+                SewerLogger.Debug("Command palette item lookup failed: " + ex.Message);
+                return;
+            }
+
+            for (int i = 0; i < items.Count; i++)
+            {
+                var item = items[i];
+                if (item == null) continue;
+
+                int score = ScoreCommandMatch(item.Name, item.Id, item.Category, "", searchQuery);
+                if (score <= 0) continue;
+
+                int quantity = _commandQuantityMode == CommandQuantityMode.Stack
+                    ? Mathf.Clamp(item.StackLimit <= 0 ? 1 : item.StackLimit, 1, 9999)
+                    : Mathf.Clamp(_commandQuantity, 1, 9999);
+
+                _commandResults.Add(new CommandResult
+                {
+                    Kind = CommandResultKind.Item,
+                    ItemSpawner = spawner,
+                    Item = item,
+                    Quantity = quantity,
+                    Title = "Spawn " + quantity + "x " + item.Name,
+                    Subtitle = TrimForCommand(item.Category + " - " + item.Id + " - stack " + Mathf.Max(1, item.StackLimit), 96),
+                    Badge = "ITEM",
+                    ActionLabel = "SPAWN",
+                    Score = score + GetIntentScoreBoost(CommandResultKind.Item)
+                });
+            }
+        }
+
+        private FeatureCommandAction GetFeatureAction(IFeature feature)
+        {
+            if (feature.Id == "itemspawner" || _commandIntent == CommandIntent.Open)
+            {
+                return feature.Id == "itemspawner" ? FeatureCommandAction.OpenItemSpawner : FeatureCommandAction.JumpToFeature;
+            }
+
+            if (!feature.IsToggleable) return FeatureCommandAction.Execute;
+            if (_commandIntent == CommandIntent.Enable) return FeatureCommandAction.Enable;
+            if (_commandIntent == CommandIntent.Disable) return FeatureCommandAction.Disable;
+            return feature.IsEnabled ? FeatureCommandAction.Disable : FeatureCommandAction.Enable;
+        }
+
+        private static string GetFeatureActionVerb(FeatureCommandAction action, IFeature feature)
+        {
+            switch (action)
+            {
+                case FeatureCommandAction.Enable:
+                    return feature.IsEnabled ? "Keep" : "Enable";
+                case FeatureCommandAction.Disable:
+                    return feature.IsEnabled ? "Disable" : "Keep";
+                case FeatureCommandAction.OpenItemSpawner:
+                    return "Open";
+                case FeatureCommandAction.JumpToFeature:
+                    return "Inspect";
+                default:
+                    return "Run";
+            }
+        }
+
+        private static int GetIntentScoreBoost(CommandResultKind kind)
+        {
+            if (kind == CommandResultKind.Item)
+            {
+                return 120;
+            }
+
+            return 0;
+        }
+
+        private static int ScoreCommandMatch(string primary, string secondary, string category, string description, string query)
+        {
+            query = NormalizeCommandText(query);
+            if (string.IsNullOrEmpty(query)) return 80;
+
+            int best = 0;
+            best = Mathf.Max(best, ScoreOneCommandTarget(primary, query, 1000));
+            best = Mathf.Max(best, ScoreOneCommandTarget(secondary, query, 900));
+            best = Mathf.Max(best, ScoreOneCommandTarget(category, query, 700));
+            best = Mathf.Max(best, ScoreOneCommandTarget(description, query, 520));
+            return best;
+        }
+
+        private static int ScoreOneCommandTarget(string value, string query, int baseScore)
+        {
+            string text = NormalizeCommandText(value);
+            if (string.IsNullOrEmpty(text)) return 0;
+
+            if (text == query) return baseScore;
+            if (text.StartsWith(query, StringComparison.Ordinal)) return baseScore - 90;
+            if (text.Contains(query)) return baseScore - 190;
+
+            string[] tokens = query.Split(new[] { ' ' }, StringSplitOptions.RemoveEmptyEntries);
+            if (tokens.Length > 1)
+            {
+                bool allTokensMatch = true;
+                for (int i = 0; i < tokens.Length; i++)
+                {
+                    if (!text.Contains(tokens[i]))
+                    {
+                        allTokensMatch = false;
+                        break;
+                    }
+                }
+
+                if (allTokensMatch) return baseScore - 230;
+            }
+
+            if (IsSubsequence(query, text)) return baseScore - 420;
+            return 0;
+        }
+
+        private static bool IsSubsequence(string query, string text)
+        {
+            if (string.IsNullOrEmpty(query)) return true;
+            if (string.IsNullOrEmpty(text)) return false;
+
+            int qi = 0;
+            for (int i = 0; i < text.Length && qi < query.Length; i++)
+            {
+                if (text[i] == query[qi])
+                {
+                    qi++;
+                }
+            }
+
+            return qi == query.Length;
+        }
+
+        private static string NormalizeCommandText(string value)
+        {
+            if (string.IsNullOrWhiteSpace(value)) return "";
+
+            value = value.Trim().ToLowerInvariant();
+            char[] chars = new char[value.Length];
+            bool lastWasSpace = false;
+            int count = 0;
+
+            for (int i = 0; i < value.Length; i++)
+            {
+                char c = value[i];
+                bool isWord = char.IsLetterOrDigit(c);
+                if (isWord)
+                {
+                    chars[count++] = c;
+                    lastWasSpace = false;
+                }
+                else if (!lastWasSpace && count > 0)
+                {
+                    chars[count++] = ' ';
+                    lastWasSpace = true;
+                }
+            }
+
+            if (count > 0 && chars[count - 1] == ' ') count--;
+            return new string(chars, 0, count);
+        }
+
+        private static string TrimForCommand(string value, int maxLength)
+        {
+            if (string.IsNullOrEmpty(value)) return "";
+            if (value.Length <= maxLength) return value;
+            return value.Substring(0, Mathf.Max(0, maxLength - 3)) + "...";
+        }
+
+        private void ExecuteSelectedCommand()
+        {
+            if (_commandResults.Count == 0) return;
+
+            int index = Mathf.Clamp(_commandSelectedIndex, 0, _commandResults.Count - 1);
+            ExecuteCommandResult(_commandResults[index]);
+        }
+
+        private void ExecuteCommandResult(CommandResult result)
+        {
+            if (result == null) return;
+
+            if (result.Kind == CommandResultKind.Item)
+            {
+                result.ItemSpawner?.SpawnItem(result.Item, result.Quantity);
+                CloseCommandPalette();
+                return;
+            }
+
+            if (result.Feature == null) return;
+
+            SelectFeature(result.Feature);
+            switch (result.FeatureAction)
+            {
+                case FeatureCommandAction.Enable:
+                    if (result.Feature.IsToggleable) result.Feature.IsEnabled = true;
+                    break;
+                case FeatureCommandAction.Disable:
+                    if (result.Feature.IsToggleable) result.Feature.IsEnabled = false;
+                    break;
+                case FeatureCommandAction.OpenItemSpawner:
+                    ItemSpawnerWindow.Instance.Show();
+                    ToastManager.Show("Item Spawner opened", SewerSkin.StatusType.Normal);
+                    break;
+                case FeatureCommandAction.JumpToFeature:
+                    JumpToFeature(result.Feature);
+                    if (!_isVisible)
+                    {
+                        Show();
+                    }
+                    break;
+                default:
+                    ActivateFeature(result.Feature);
+                    break;
+            }
+
+            if (result.FeatureAction == FeatureCommandAction.Enable)
+            {
+                ToastManager.Show(result.Feature.Name + " enabled", SewerSkin.StatusType.Success);
+            }
+            else if (result.FeatureAction == FeatureCommandAction.Disable)
+            {
+                ToastManager.Show(result.Feature.Name + " disabled", SewerSkin.StatusType.Normal);
+            }
+
+            CloseCommandPalette();
         }
 
         private void OpenCommandPalette()
         {
             _commandPaletteVisible = true;
             _commandQuery = "";
+            _lastCommandQuery = null;
             _commandSelectedIndex = 0;
-            BuildCommandResults();
+            _commandAnim = 0f;
+
+            Cursor.lockState = CursorLockMode.None;
+            Cursor.visible = true;
+            if (!_isVisible && !ItemSpawnerWindow.Instance.IsVisible)
+            {
+                DisablePlayerCamera();
+            }
+            MenuInputBlocker.Instance.Update();
+            _inputCaptureWasActive = true;
+        }
+
+        private void CloseCommandPalette()
+        {
+            if (!_commandPaletteVisible) return;
+
+            _commandPaletteVisible = false;
+            _commandQuery = "";
+            _lastCommandQuery = null;
+            _commandSelectedIndex = 0;
+
+            if (!IsCapturingInput)
+            {
+                MenuInputBlocker.Instance.Release();
+                EnablePlayerCamera();
+                Cursor.lockState = CursorLockMode.Locked;
+                Cursor.visible = false;
+                _inputCaptureWasActive = false;
+            }
         }
 
         private void ToggleCommandPalette()
         {
             if (_commandPaletteVisible)
             {
-                _commandPaletteVisible = false;
+                CloseCommandPalette();
             }
             else
             {
@@ -1325,6 +1842,53 @@ namespace SewerMenu.UI
         }
 
         #endregion
+
+        private sealed class CommandResult
+        {
+            public CommandResultKind Kind;
+            public IFeature Feature;
+            public FeatureCommandAction FeatureAction;
+            public ItemSpawner ItemSpawner;
+            public ItemSpawner.ItemInfo Item;
+            public int Quantity = 1;
+            public string Title = "";
+            public string Subtitle = "";
+            public string Badge = "";
+            public string ActionLabel = "";
+            public int Score;
+        }
+
+        private enum CommandResultKind
+        {
+            Feature,
+            Item
+        }
+
+        private enum FeatureCommandAction
+        {
+            Enable,
+            Disable,
+            Execute,
+            OpenItemSpawner,
+            JumpToFeature
+        }
+
+        private enum CommandIntent
+        {
+            None,
+            Enable,
+            Disable,
+            Toggle,
+            Open,
+            Spawn,
+            Item
+        }
+
+        private enum CommandQuantityMode
+        {
+            Exact,
+            Stack
+        }
 
         private readonly struct ComponentEnabledState
         {

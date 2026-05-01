@@ -4,7 +4,7 @@ SewerMenu is a MelonLoader mod menu for **Schedule I**. The `beta` branch is the
 
 ## Highlights
 
-- Modern IMGUI menu with animated tabs, toggles, command palette, favorites, and an inspector panel
+- Modern IMGUI menu with animated tabs, toggles, favorites, inspector panel, and Ctrl+K command palette
 - Full item spawner with fuzzy search, category filters, quantity presets, and search commands
 - Input lock so scrolling the menu does not scroll the in-game hotbar
 - Performance-focused ESP refresh/caching and vehicle tab caching
@@ -31,7 +31,7 @@ SewerMenu is a MelonLoader mod menu for **Schedule I**. The `beta` branch is the
 | --- | --- |
 | `F8` | Toggle menu |
 | `Esc` | Close menu |
-| `Ctrl+K` | Open command palette |
+| `Ctrl+K` | Open command palette from the menu or gameplay |
 
 ## Item Spawner Search Commands
 

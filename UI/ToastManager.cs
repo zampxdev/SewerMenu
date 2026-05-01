@@ -15,6 +15,8 @@ namespace SewerMenu.UI
 
         private static readonly List<Toast> _toasts = new List<Toast>();
 
+        public static bool HasActiveToasts => _toasts.Count > 0;
+
         public static void Show(string message, SewerSkin.StatusType type = SewerSkin.StatusType.Normal, float duration = 2.6f)
         {
             if (string.IsNullOrWhiteSpace(message)) return;
