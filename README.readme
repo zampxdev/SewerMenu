@@ -1,6 +1,6 @@
-# SewerMenu 2.0 Beta
+# SewerMenu 2.0
 
-SewerMenu is a Schedule I mod menu built on MelonLoader. Version `2.0.0-beta.1` is the current beta branch build targeting Schedule I `0.4.5f2`.
+SewerMenu is a Schedule I mod menu built on MelonLoader. Version `2.0.0` targets Schedule I `0.4.5f2`.
 
 ## Requirements
 
@@ -22,7 +22,7 @@ SewerMenu is a Schedule I mod menu built on MelonLoader. Version `2.0.0-beta.1` 
 | `Esc` | Close menu |
 | `Shift+K` | Open or close command palette from the menu or gameplay |
 
-## 2.0 Beta Highlights
+## 2.0 Highlights
 
 - Reworked modern UI with animated tabs, smoother toggles, favorites, quick actions, and an inspector panel
 - Shift+K command palette for toggling features, spawning matching items, and closing by typing `close`
@@ -68,10 +68,8 @@ Keybinds, animation quality, menu input lock, favorites, and persistent configur
 
 ## Notes
 
-- This beta branch is for testing the 2.0 launch candidate before public release.
 - Some features require being loaded into a save before the required game managers exist.
 - If a feature does nothing, check the on-screen status/toast and MelonLoader log before reporting it.
-- Do not upload a public 2.0 release until final in-game testing has passed and the launch is explicitly approved.
 
 ## Troubleshooting
 

@@ -1,6 +1,6 @@
 # SewerMenu
 
-SewerMenu is a MelonLoader mod menu for **Schedule I**. The `beta` branch is the active 2.0 development branch and is currently targeting Schedule I `0.4.5f2`.
+SewerMenu is a MelonLoader mod menu for **Schedule I**. Version `2.0.0` targets Schedule I `0.4.5f2`.
 
 ## Highlights
 
@@ -70,14 +70,10 @@ dotnet build --configuration Release /p:SkipCopyToMods=true
 
 ## Local Verification
 
-After Schedule I updates, launch the game once with MelonLoader installed so `MelonLoader/Il2CppAssemblies` is regenerated. Then run:
+After Schedule I updates, launch the game once with MelonLoader installed so `MelonLoader/Il2CppAssemblies` is regenerated, then run your local verifier script if you use one.
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\verify-game-types.ps1
-```
-
-This builds without copying a Debug DLL into Mods and verifies the generated IL2CPP types/members used by the menu without entering a save.
+Local PowerShell helper scripts are intentionally ignored and are not part of the public source release.
 
 ## Release Notes
 
-Do not publish a GitHub release or Nexus Mods upload until the 2.0 launch has been explicitly approved.
+See `CHANGELOG.md` for the 2.0 release notes.

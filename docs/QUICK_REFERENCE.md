@@ -237,11 +237,7 @@ C:\Program Files (x86)\Steam\steamapps\common\Schedule I\MelonLoader\Latest.log
 
 ### Verify After Game Updates
 
-```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File .\verify-game-types.ps1
-```
-
-If the verifier reports stale `MelonLoader\Il2CppAssemblies`, launch Schedule I once with MelonLoader installed, close it after generation finishes, then rerun the verifier.
+Launch Schedule I once with MelonLoader installed so `MelonLoader\Il2CppAssemblies` is regenerated, then rebuild the mod against the regenerated assemblies.
 
 ---
 

@@ -120,7 +120,6 @@ SewerMenu/
 │
 ├── SewerMenu.csproj               # Project file
 ├── SewerMenu.sln                  # Solution file
-├── AGENTS.md                      # This development guide
 ├── GAME_TYPES.md                  # Game type reference
 ├── KEY_TYPES.md                   # Important types summary
 └── DOCUMENTATION.md               # User documentation

@@ -1,8 +1,8 @@
 # Changelog
 
-## 2.0.0-beta.1 - 2026-05-01
+## 2.0.0 - 2026-05-01
 
-This is the first pushed 2.0 beta branch build for Schedule I `0.4.5f2`.
+This is the public 2.0 release for Schedule I `0.4.5f2`.
 
 ### Added
 
@@ -32,8 +32,3 @@ This is the first pushed 2.0 beta branch build for Schedule I `0.4.5f2`.
 - Fixed item spawner text clipping in rows and footer status text.
 - Fixed inventory failure feedback so full item spawning reports when items cannot fit.
 - Fixed menu resize stability issues from expensive resize-time UI behavior.
-
-### Release Blockers
-
-- Final in-game acceptance test still required before public 2.0 release.
-- Public release should not be tagged, uploaded, or published until explicitly approved.
