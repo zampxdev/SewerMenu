@@ -142,8 +142,8 @@ namespace SewerMenu.UI.Pages
         
         private void RefreshCachedValues()
         {
-            if (Time.time - _lastCacheTime < CacheInterval) return;
-            _lastCacheTime = Time.time;
+            if (Time.unscaledTime - _lastCacheTime < CacheInterval) return;
+            _lastCacheTime = Time.unscaledTime;
             
             var time = FeatureManager.Instance.GetFeature<TimeController>("timecontroller");
             if (time != null)

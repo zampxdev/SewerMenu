@@ -19,6 +19,9 @@ namespace SewerMenu.UI.Pages
         private string[] _categories = new string[] { "All" };
         private int _selectedCategoryIndex = 0;
         private bool _categoriesLoaded = false;
+        private bool _quickRefreshRequested = false;
+        private bool _quickFilterRequested = false;
+        private string _pendingQuickFilter = "";
 
         protected override void DrawContent()
         {
@@ -44,6 +47,8 @@ namespace SewerMenu.UI.Pages
             var spawner = FeatureManager.Instance.GetFeature<ItemSpawner>("itemspawner");
             if (spawner != null)
             {
+                ApplyDeferredQuickSpawnerChanges(spawner);
+
                 // Load categories once
                 if (!_categoriesLoaded)
                 {
@@ -64,29 +69,29 @@ namespace SewerMenu.UI.Pages
                 {
                     _selectedCategoryIndex--;
                     if (_selectedCategoryIndex < 0) _selectedCategoryIndex = _categories.Length - 1;
-                    spawner.SearchFilter = _selectedCategoryIndex == 0 ? "" : _categories[_selectedCategoryIndex];
+                    QueueQuickFilter(_selectedCategoryIndex == 0 ? "" : _categories[_selectedCategoryIndex]);
                 }
                 
                 Rect categoryRect = GUILayoutUtility.GetRect(100, 24, GUILayout.Width(100), GUILayout.Height(24));
                 SewerSkin.DrawRoundedRect(categoryRect, new Color(0.045f, 0.058f, 0.052f, 0.96f), new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.55f), 6, 1);
                 oldColor = GUI.contentColor;
                 GUI.contentColor = SewerSkin.AccentGlow;
-                GUI.Label(categoryRect, _categories[_selectedCategoryIndex], new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 11 });
+                GUI.Label(categoryRect, _categories[_selectedCategoryIndex], SewerSkin.GetLabelStyle(11, FontStyle.Normal, TextAnchor.MiddleCenter));
                 GUI.contentColor = oldColor;
                 
                 if (DrawButton(">", 25))
                 {
                     _selectedCategoryIndex++;
                     if (_selectedCategoryIndex >= _categories.Length) _selectedCategoryIndex = 0;
-                    spawner.SearchFilter = _selectedCategoryIndex == 0 ? "" : _categories[_selectedCategoryIndex];
+                    QueueQuickFilter(_selectedCategoryIndex == 0 ? "" : _categories[_selectedCategoryIndex]);
                 }
                 
                 GUILayout.Space(10);
                 if (DrawButton("Refresh", 70))
                 {
-                    spawner.RefreshItemCache();
-                    _categoriesLoaded = false;
                     _selectedCategoryIndex = 0;
+                    _quickRefreshRequested = true;
+                    QueueQuickFilter("");
                 }
                 GUILayout.EndHorizontal();
 
@@ -107,9 +112,11 @@ namespace SewerMenu.UI.Pages
                 
                 // Scrollable item list
                 SewerSkin.BeginBox();
-                _itemScrollPosition = GUILayout.BeginScrollView(_itemScrollPosition, GUILayout.Height(180));
-                
-                for (int i = 0; i < filteredItems.Count; i++)
+                const float quickListHeight = 180f;
+                _itemScrollPosition = GUILayout.BeginScrollView(_itemScrollPosition, GUILayout.Height(quickListHeight));
+
+                int itemCount = filteredItems.Count;
+                for (int i = 0; i < itemCount; i++)
                 {
                     var item = filteredItems[i];
                     bool isSelected = spawner.SelectedIndex == i;
@@ -126,12 +133,12 @@ namespace SewerMenu.UI.Pages
 
                     oldColor = GUI.contentColor;
                     GUI.contentColor = isSelected ? SewerSkin.AccentGlow : SewerSkin.TextColor;
-                    GUI.Label(new Rect(rowRect.x + 10, rowRect.y + 5, rowRect.width - 120, 18), item.Name, new GUIStyle(GUI.skin.label) { fontSize = 11 });
+                    GUI.Label(new Rect(rowRect.x + 10, rowRect.y + 5, rowRect.width - 120, 18), item.Name, SewerSkin.GetLabelStyle(11));
                     GUI.contentColor = SewerSkin.TextMutedColor;
-                    GUI.Label(new Rect(rowRect.x + rowRect.width - 98, rowRect.y + 5, 90, 18), $"[{item.Category}]", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleRight, fontSize = 10 });
+                    GUI.Label(new Rect(rowRect.x + rowRect.width - 98, rowRect.y + 5, 90, 18), $"[{item.Category}]", SewerSkin.GetLabelStyle(10, FontStyle.Normal, TextAnchor.MiddleRight));
                     GUI.contentColor = oldColor;
 
-                    if (GUI.Button(rowRect, "", GUIStyle.none))
+                    if (IsRectClicked(rowRect))
                     {
                         spawner.SelectedIndex = i;
                     }
@@ -140,10 +147,7 @@ namespace SewerMenu.UI.Pages
                 
                 if (filteredItems.Count == 0)
                 {
-                    oldColor = GUI.contentColor;
-                    GUI.contentColor = SewerSkin.TextMutedColor;
-                    GUILayout.Label("No items found. Click 'Refresh' to load items.");
-                    GUI.contentColor = oldColor;
+                    SewerSkin.DrawEmptyState("No items found", "Try another category or refresh the item registry.", SewerSkin.StatusType.Warning);
                 }
                 
                 GUILayout.EndScrollView();
@@ -280,6 +284,47 @@ namespace SewerMenu.UI.Pages
                 if (autoGrow != growFeature.IsEnabled) growFeature.IsEnabled = autoGrow;
                 GUILayout.EndHorizontal();
             }
+        }
+
+        private void QueueQuickFilter(string filter)
+        {
+            _pendingQuickFilter = filter ?? "";
+            _quickFilterRequested = true;
+            _itemScrollPosition = Vector2.zero;
+        }
+
+        private void ApplyDeferredQuickSpawnerChanges(ItemSpawner spawner)
+        {
+            Event e = Event.current;
+            if (spawner == null || e == null || e.type != EventType.Layout)
+            {
+                return;
+            }
+
+            if (_quickRefreshRequested)
+            {
+                _quickRefreshRequested = false;
+                spawner.RefreshItemCache();
+                _categoriesLoaded = false;
+            }
+
+            if (_quickFilterRequested)
+            {
+                _quickFilterRequested = false;
+                spawner.SearchFilter = _pendingQuickFilter ?? "";
+            }
+        }
+
+        private static bool IsRectClicked(Rect rect)
+        {
+            Event e = Event.current;
+            if (e == null || e.type != EventType.MouseDown || e.button != 0 || !rect.Contains(e.mousePosition))
+            {
+                return false;
+            }
+
+            e.Use();
+            return true;
         }
     }
 }

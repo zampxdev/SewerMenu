@@ -178,8 +178,8 @@ namespace SewerMenu.UI.Pages
         
         private void RefreshCachedValues()
         {
-            if (Time.time - _lastCacheTime < CacheInterval) return;
-            _lastCacheTime = Time.time;
+            if (Time.unscaledTime - _lastCacheTime < CacheInterval) return;
+            _lastCacheTime = Time.unscaledTime;
             
             var money = FeatureManager.Instance.GetFeature<MoneyEditor>("moneyeditor");
             if (money != null)

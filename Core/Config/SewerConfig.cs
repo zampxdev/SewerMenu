@@ -53,6 +53,23 @@ namespace SewerMenu.Core.Config
         
         [JsonProperty("showTooltips")]
         public bool ShowTooltips { get; set; } = true;
+
+        [JsonProperty("lockGameInputWhenMenuOpen")]
+        public bool LockGameInputWhenMenuOpen { get; set; } = true;
+
+        [JsonProperty("animationQuality")]
+        public string AnimationQuality { get; set; } = "Balanced";
+
+        [JsonProperty("favoriteFeatureIds")]
+        public List<string> FavoriteFeatureIds { get; set; } = new List<string>
+        {
+            "godmode",
+            "infinitestamina",
+            "infiniteammo",
+            "esp",
+            "fpsoptimizer",
+            "itemspawner"
+        };
         
         [JsonProperty("lastTab")]
         public int LastTab { get; set; } = 0;

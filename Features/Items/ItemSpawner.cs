@@ -163,12 +163,14 @@ namespace SewerMenu.Features.Items
                 {
                     LastSpawnSucceeded = true;
                     LastSpawnMessage = $"Spawned {spawnAmount}x {item.Name}";
+                    SewerMenu.UI.ToastManager.Show(LastSpawnMessage, SewerMenu.UI.SewerSkin.StatusType.Success);
                     SewerLogger.Success($"Spawned {spawnAmount}x {item.Name} ({item.Id})");
                 }
                 else
                 {
                     LastSpawnSucceeded = false;
                     LastSpawnMessage = GameTypes.LastInventoryError ?? $"Failed to spawn {item.Name}";
+                    SewerMenu.UI.ToastManager.Show(LastSpawnMessage, SewerMenu.UI.SewerSkin.StatusType.Warning);
                     SewerLogger.Warning($"Failed to spawn {item.Name} ({item.Id})");
                 }
             }, "spawning item");
@@ -190,12 +192,14 @@ namespace SewerMenu.Features.Items
                 {
                     LastSpawnSucceeded = true;
                     LastSpawnMessage = $"Spawned {amount}x {def.Name}";
+                    SewerMenu.UI.ToastManager.Show(LastSpawnMessage, SewerMenu.UI.SewerSkin.StatusType.Success);
                     SewerLogger.Success($"Spawned {amount}x {def.Name} ({def.ID})");
                 }
                 else
                 {
                     LastSpawnSucceeded = false;
                     LastSpawnMessage = GameTypes.LastInventoryError ?? $"Failed to spawn {def.Name}";
+                    SewerMenu.UI.ToastManager.Show(LastSpawnMessage, SewerMenu.UI.SewerSkin.StatusType.Warning);
                     SewerLogger.Warning($"Failed to spawn {def.Name} ({def.ID})");
                 }
             }, "spawning item by ID");

@@ -18,10 +18,15 @@ namespace SewerMenu.Features.Misc
 
         private Equippable_RangedWeapon[] _cachedWeapons = Array.Empty<Equippable_RangedWeapon>();
         private float _nextWeaponRefresh;
+        private float _nextVisibleWeaponRefill;
+
+        private const float WeaponCacheRefreshInterval = 1.25f;
+        private const float VisibleWeaponRefillInterval = 0.45f;
 
         public override void OnEnable()
         {
             _nextWeaponRefresh = 0f;
+            _nextVisibleWeaponRefill = 0f;
             RefillEquippedItem();
             RefillVisibleWeapons();
         }
@@ -32,15 +37,21 @@ namespace SewerMenu.Features.Misc
 
             SafeExecute(() =>
             {
+                float now = Time.unscaledTime;
+
                 RefillEquippedItem();
 
-                if (Time.unscaledTime >= _nextWeaponRefresh)
+                if (now >= _nextWeaponRefresh)
                 {
                     RefreshWeaponCache();
-                    _nextWeaponRefresh = Time.unscaledTime + 0.25f;
+                    _nextWeaponRefresh = now + WeaponCacheRefreshInterval;
                 }
 
-                RefillVisibleWeapons();
+                if (now >= _nextVisibleWeaponRefill)
+                {
+                    RefillVisibleWeapons();
+                    _nextVisibleWeaponRefill = now + VisibleWeaponRefillInterval;
+                }
             }, "refilling weapon ammo");
         }
 

@@ -241,6 +241,12 @@ namespace SewerMenu.Features.Base
         
         public void OnGUI()
         {
+            var currentEvent = Event.current;
+            if (currentEvent != null && currentEvent.type != EventType.Repaint)
+            {
+                return;
+            }
+
             foreach (var feature in _features.Values)
             {
                 if (feature.IsEnabled)

@@ -49,7 +49,7 @@ namespace SewerMenu.UI.Pages
             {
                 if (feature.IsToggleable)
                 {
-                    bool newValue = SewerSkin.DrawToggle(feature.Name, feature.IsEnabled, feature.Description);
+                    bool newValue = DrawFeatureToggle(feature);
                     if (newValue != feature.IsEnabled)
                     {
                         feature.IsEnabled = newValue;
@@ -58,7 +58,14 @@ namespace SewerMenu.UI.Pages
                 else
                 {
                     GUILayout.BeginHorizontal();
-                    if (SewerSkin.DrawButton(feature.Name, 150))
+                    Rect actionRect = GUILayoutUtility.GetRect(150, 30, GUILayout.Width(150), GUILayout.Height(30));
+                    bool hovered = actionRect.Contains(Event.current.mousePosition);
+                    bool clicked = SewerSkin.DrawButtonRect(actionRect, feature.Name, SewerSkin.ButtonColor, SewerSkin.ButtonHoverColor, SewerSkin.TextColor, 7, false, 11);
+                    if (hovered || clicked)
+                    {
+                        MenuController.Instance.InspectFeature(feature);
+                    }
+                    if (clicked)
                     {
                         feature.Execute();
                     }
@@ -77,7 +84,44 @@ namespace SewerMenu.UI.Pages
 
         protected bool DrawToggle(string name, bool currentValue, string description = null)
         {
-            return SewerSkin.DrawToggle(name, currentValue, description);
+            bool result = SewerSkin.DrawToggle(name, currentValue, description);
+            if (SewerSkin.LastToggleHovered || SewerSkin.LastToggleClicked)
+            {
+                var feature = FindFeatureForToggle(name);
+                if (feature != null)
+                {
+                    MenuController.Instance.InspectFeature(feature);
+                }
+            }
+
+            return result;
+        }
+
+        protected bool DrawFeatureToggle(IFeature feature, string description = null)
+        {
+            if (feature == null) return false;
+
+            bool result = SewerSkin.DrawToggle(feature.Name, feature.IsEnabled, description ?? feature.Description);
+            if (SewerSkin.LastToggleHovered || SewerSkin.LastToggleClicked)
+            {
+                MenuController.Instance.InspectFeature(feature);
+            }
+
+            return result;
+        }
+
+        private IFeature FindFeatureForToggle(string name)
+        {
+            var features = FeatureManager.Instance.GetFeaturesByCategory(Category);
+            foreach (var feature in features)
+            {
+                if (feature != null && feature.Name == name)
+                {
+                    return feature;
+                }
+            }
+
+            return null;
         }
 
         protected float DrawSlider(string label, float value, float min, float max, string format = "F1")

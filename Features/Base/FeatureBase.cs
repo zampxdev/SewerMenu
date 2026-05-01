@@ -51,11 +51,13 @@ namespace SewerMenu.Features.Base
                     {
                         OnEnable();
                         SewerLogger.FeatureToggled(Name, true);
+                        ShowToggleToast(true);
                     }
                     else
                     {
                         OnDisable();
                         SewerLogger.FeatureToggled(Name, false);
+                        ShowToggleToast(false);
                     }
                 }
                 catch (Exception ex)
@@ -165,6 +167,20 @@ namespace SewerMenu.Features.Base
         #endregion
         
         #region Helper Methods
+
+        private void ShowToggleToast(bool enabled)
+        {
+            try
+            {
+                if (SewerMenu.UI.MenuController.Instance.IsVisible)
+                {
+                    SewerMenu.UI.ToastManager.Show(
+                        Name + (enabled ? " enabled" : " disabled"),
+                        enabled ? SewerMenu.UI.SewerSkin.StatusType.Success : SewerMenu.UI.SewerSkin.StatusType.Normal);
+                }
+            }
+            catch { }
+        }
         
         /// <summary>
         /// Safely executes an action with error handling.

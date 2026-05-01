@@ -1,6 +1,8 @@
+using System.Collections.Generic;
 using UnityEngine;
 using SewerMenu.Features.Base;
 using SewerMenu.Features.Vehicles;
+using Il2CppScheduleOne.Vehicles;
 
 namespace SewerMenu.UI.Pages
 {
@@ -11,46 +13,54 @@ namespace SewerMenu.UI.Pages
     {
         public override string Title => "Vehicles";
         public override FeatureCategory Category => FeatureCategory.Vehicles;
-        
+
         private int _selectedIndex = 0;
+        private Vector2 _quickSpawnScroll;
+        private float _lastVehicleRefreshTime = -999f;
+        private bool _cachedInVehicle;
+        private LandVehicle _cachedCurrentVehicle;
+        private string _cachedCurrentVehicleName = "Unknown";
+        private readonly List<LandVehicle> _cachedOwnedVehicles = new List<LandVehicle>();
+        private readonly Dictionary<int, string> _ownedVehicleNames = new Dictionary<int, string>();
+
+        private const float VehicleRefreshInterval = 0.85f;
+        private const int VehiclesPerRow = 3;
+        private const float QuickSpawnHeight = 132f;
+        private const float QuickSpawnRowHeight = 34f;
 
         protected override void DrawContent()
         {
-            // Vehicle Spawner Section
             DrawSection("VEHICLE SPAWNER");
-            
+
             var spawner = FeatureManager.Instance.GetFeature<VehicleSpawner>("vehiclespawner");
             if (spawner == null)
             {
-                SewerSkin.DrawStatus("Vehicle Spawner not available", SewerSkin.StatusType.Error);
+                SewerSkin.DrawEmptyState("Vehicle spawner unavailable", "The vehicle spawner feature did not register.", SewerSkin.StatusType.Error);
                 return;
             }
-            
+
             var vehicles = spawner.GetVehicleList();
-            
+
             if (vehicles.Count == 0)
             {
-                SewerSkin.DrawStatus("Loading vehicles...", SewerSkin.StatusType.Warning);
+                SewerSkin.DrawEmptyState("Loading vehicles", "Refresh after loading into a save if the vehicle list is empty.", SewerSkin.StatusType.Warning);
                 if (DrawButton("Refresh Vehicle List", 150))
                 {
                     spawner.LoadVehicles();
                 }
                 return;
             }
-            
+
             DrawInfo("Available Vehicles", vehicles.Count.ToString());
-            
-            // Keep selected index in sync
+
             _selectedIndex = spawner.SelectedIndex;
-            
-            // Vehicle selector
+
             GUILayout.Space(5);
             var selected = spawner.GetSelectedVehicle();
             string selectedName = selected != null ? selected.Name : "None";
             string colorInfo = (selected != null && selected.SupportsColor) ? " [Color]" : "";
             DrawInfo("Selected", selectedName + colorInfo + " (" + (_selectedIndex + 1) + "/" + vehicles.Count + ")");
-            
-            // Navigation buttons
+
             GUILayout.BeginHorizontal();
             if (DrawButton("< Prev", 70))
             {
@@ -66,12 +76,11 @@ namespace SewerMenu.UI.Pages
                 spawner.SpawnSelectedVehicle();
             }
             GUILayout.EndHorizontal();
-            
+
             GUILayout.Space(10);
-            
-            // Color selector
+
             DrawInfo("Color", spawner.SelectedColorName);
-            
+
             GUILayout.BeginHorizontal();
             if (DrawButton("< Color", 70))
             {
@@ -82,27 +91,109 @@ namespace SewerMenu.UI.Pages
                 spawner.SelectedColorIndex++;
             }
             GUILayout.EndHorizontal();
-            
+
             GUILayout.Space(10);
-            
-            // Quick spawn buttons
+            DrawQuickSpawnGrid(spawner, vehicles);
+            GUILayout.Space(15);
+
+            DrawSection("VEHICLE UTILITIES");
+
+            var utilities = FeatureManager.Instance.GetFeature<VehicleUtilities>("vehicleutilities");
+            if (utilities == null)
+            {
+                SewerSkin.DrawEmptyState("Vehicle utilities unavailable", "The vehicle utility feature did not register.", SewerSkin.StatusType.Warning);
+                return;
+            }
+
+            RefreshVehicleUtilityCache(utilities);
+            if (_cachedInVehicle)
+            {
+                DrawInfo("Current Vehicle", _cachedCurrentVehicleName);
+
+                GUILayout.BeginHorizontal();
+                if (DrawButton("Flip Upright", 100))
+                {
+                    utilities.FlipCurrentVehicle();
+                    RefreshVehicleUtilityCache(utilities, true);
+                }
+                GUILayout.EndHorizontal();
+            }
+            else
+            {
+                SewerSkin.DrawEmptyState("Not in a vehicle", "Vehicle actions appear here when you enter a vehicle.", SewerSkin.StatusType.Normal);
+            }
+
+            GUILayout.Space(10);
+            DrawSection("YOUR VEHICLES");
+
+            if (_cachedOwnedVehicles.Count == 0)
+            {
+                SewerSkin.DrawEmptyState("No owned vehicles", "Owned vehicles will appear here once the periodic scan finds them.", SewerSkin.StatusType.Normal);
+            }
+            else
+            {
+                DrawInfo("Owned Vehicles", _cachedOwnedVehicles.Count.ToString());
+
+                foreach (var vehicle in _cachedOwnedVehicles)
+                {
+                    if (vehicle == null) continue;
+
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Space(10);
+                    GUILayout.Label("- " + GetCachedVehicleName(vehicle), GUILayout.Width(150));
+                    if (DrawButton("Teleport", 70))
+                    {
+                        utilities.TeleportToVehicle(vehicle);
+                    }
+                    if (DrawButton("Flip", 50))
+                    {
+                        utilities.FlipVehicle(vehicle);
+                        RefreshVehicleUtilityCache(utilities, true);
+                    }
+                    GUILayout.EndHorizontal();
+                }
+            }
+        }
+
+        private void DrawQuickSpawnGrid(VehicleSpawner spawner, List<VehicleSpawner.VehicleInfo> vehicles)
+        {
             var oldColor = GUI.contentColor;
             GUI.contentColor = SewerSkin.TextMutedColor;
             GUILayout.Label("Quick Spawn (* = supports color):");
             GUI.contentColor = oldColor;
-            
+
             GUILayout.Space(3);
-            
-            // Display all vehicles in rows of 3
-            int vehiclesPerRow = 3;
-            for (int i = 0; i < vehicles.Count; i += vehiclesPerRow)
+
+            if (vehicles == null || vehicles.Count == 0)
+            {
+                SewerSkin.DrawEmptyState("No vehicles loaded", "Refresh the vehicle list when you are loaded into a save.", SewerSkin.StatusType.Warning);
+                return;
+            }
+
+            int totalRows = Mathf.CeilToInt(vehicles.Count / (float)VehiclesPerRow);
+            int firstRow = Mathf.Clamp(Mathf.FloorToInt(_quickSpawnScroll.y / QuickSpawnRowHeight) - 1, 0, totalRows);
+            int visibleRows = Mathf.CeilToInt(QuickSpawnHeight / QuickSpawnRowHeight) + 3;
+            int lastRow = Mathf.Clamp(firstRow + visibleRows, 0, totalRows);
+
+            SewerSkin.BeginBox();
+            _quickSpawnScroll = GUILayout.BeginScrollView(_quickSpawnScroll, GUILayout.Height(QuickSpawnHeight));
+
+            if (firstRow > 0)
+            {
+                GUILayout.Space(firstRow * QuickSpawnRowHeight);
+            }
+
+            for (int row = firstRow; row < lastRow; row++)
             {
                 GUILayout.BeginHorizontal();
-                for (int j = i; j < i + vehiclesPerRow && j < vehicles.Count; j++)
+                int startIndex = row * VehiclesPerRow;
+                int endIndex = Mathf.Min(startIndex + VehiclesPerRow, vehicles.Count);
+
+                for (int j = startIndex; j < endIndex; j++)
                 {
                     var vehicle = vehicles[j];
                     string label = vehicle.SupportsColor ? vehicle.Name + "*" : vehicle.Name;
-                    
+
                     if (j == _selectedIndex)
                     {
                         if (SewerSkin.DrawAccentButton(label, 110))
@@ -118,95 +209,108 @@ namespace SewerMenu.UI.Pages
                         }
                     }
                 }
+
                 GUILayout.EndHorizontal();
+                GUILayout.Space(4);
             }
-            
-            GUILayout.Space(15);
-            
-            // Vehicle Utilities Section
-            DrawSection("VEHICLE UTILITIES");
-            
-            var utilities = FeatureManager.Instance.GetFeature<VehicleUtilities>("vehicleutilities");
-            if (utilities == null)
+
+            if (lastRow < totalRows)
             {
-                SewerSkin.DrawStatus("Vehicle utilities not available", SewerSkin.StatusType.Warning);
+                GUILayout.Space((totalRows - lastRow) * QuickSpawnRowHeight);
+            }
+
+            GUILayout.EndScrollView();
+            SewerSkin.EndBox();
+        }
+
+        private void RefreshVehicleUtilityCache(VehicleUtilities utilities, bool force = false)
+        {
+            if (utilities == null) return;
+
+            float now = Time.unscaledTime;
+            if (!force && now - _lastVehicleRefreshTime < VehicleRefreshInterval)
+            {
                 return;
             }
-            
-            bool inVehicle = utilities.IsInVehicle();
-            if (inVehicle)
+
+            _lastVehicleRefreshTime = now;
+
+            try
             {
-                var vehicle = utilities.GetCurrentVehicle();
-                string vehicleName = "Unknown";
-                if (vehicle != null && vehicle.gameObject != null)
-                {
-                    vehicleName = vehicle.gameObject.name;
-                }
-                DrawInfo("Current Vehicle", vehicleName);
-                
-                GUILayout.BeginHorizontal();
-                if (DrawButton("Flip Upright", 100))
-                {
-                    utilities.FlipCurrentVehicle();
-                }
-                GUILayout.EndHorizontal();
+                _cachedCurrentVehicle = utilities.GetCurrentVehicle();
+                _cachedInVehicle = _cachedCurrentVehicle != null;
+                _cachedCurrentVehicleName = _cachedInVehicle ? ResolveVehicleName(_cachedCurrentVehicle) : "None";
             }
-            else
+            catch
             {
-                var mutedColor = GUI.contentColor;
-                GUI.contentColor = SewerSkin.TextMutedColor;
-                GUILayout.Label("Not in a vehicle");
-                GUI.contentColor = mutedColor;
+                _cachedCurrentVehicle = null;
+                _cachedInVehicle = false;
+                _cachedCurrentVehicleName = "Unknown";
             }
-            
-            // Owned Vehicles Section
-            GUILayout.Space(10);
-            DrawSection("YOUR VEHICLES");
-            
-            var ownedVehicles = utilities.GetOwnedVehicles();
-            if (ownedVehicles.Count == 0)
+
+            _cachedOwnedVehicles.Clear();
+            _ownedVehicleNames.Clear();
+
+            try
             {
-                var mutedColor = GUI.contentColor;
-                GUI.contentColor = SewerSkin.TextMutedColor;
-                GUILayout.Label("No owned vehicles found");
-                GUI.contentColor = mutedColor;
-            }
-            else
-            {
-                DrawInfo("Owned Vehicles", ownedVehicles.Count.ToString());
-                
-                foreach (var vehicle in ownedVehicles)
+                var owned = utilities.GetOwnedVehicles();
+                for (int i = 0; i < owned.Count; i++)
                 {
+                    var vehicle = owned[i];
                     if (vehicle == null) continue;
-                    
-                    string vName = "Vehicle";
+
+                    _cachedOwnedVehicles.Add(vehicle);
                     try
                     {
-                        var data = vehicle.GetVehicleData();
-                        if (data != null && !string.IsNullOrEmpty(data.VehicleCode))
-                            vName = data.VehicleCode;
-                        else
-                            vName = vehicle.gameObject.name;
+                        _ownedVehicleNames[vehicle.GetInstanceID()] = ResolveVehicleName(vehicle);
                     }
-                    catch
-                    {
-                        try { vName = vehicle.gameObject.name; } catch { }
-                    }
-                    
-                    GUILayout.BeginHorizontal();
-                    GUILayout.Space(10);
-                    GUILayout.Label("• " + vName, GUILayout.Width(150));
-                    if (DrawButton("Teleport", 70))
-                    {
-                        utilities.TeleportToVehicle(vehicle);
-                    }
-                    if (DrawButton("Flip", 50))
-                    {
-                        utilities.FlipVehicle(vehicle);
-                    }
-                    GUILayout.EndHorizontal();
+                    catch { }
                 }
             }
+            catch { }
+        }
+
+        private string GetCachedVehicleName(LandVehicle vehicle)
+        {
+            if (vehicle == null) return "Vehicle";
+
+            try
+            {
+                int id = vehicle.GetInstanceID();
+                if (_ownedVehicleNames.TryGetValue(id, out var name) && !string.IsNullOrEmpty(name))
+                {
+                    return name;
+                }
+            }
+            catch { }
+
+            return ResolveVehicleName(vehicle);
+        }
+
+        private string ResolveVehicleName(LandVehicle vehicle)
+        {
+            if (vehicle == null) return "Vehicle";
+
+            try
+            {
+                var data = vehicle.GetVehicleData();
+                if (data != null && !string.IsNullOrEmpty(data.VehicleCode))
+                {
+                    return data.VehicleCode;
+                }
+            }
+            catch { }
+
+            try
+            {
+                if (vehicle.gameObject != null && !string.IsNullOrEmpty(vehicle.gameObject.name))
+                {
+                    return vehicle.gameObject.name;
+                }
+            }
+            catch { }
+
+            return "Vehicle";
         }
     }
 }

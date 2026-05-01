@@ -10,7 +10,7 @@
     <!-- Assembly Info -->
     <AssemblyName>SewerMenu</AssemblyName>
     <RootNamespace>SewerMenu</RootNamespace>
-    <Version>1.0.7</Version>
+    <Version>2.0.0-beta.1</Version>
     <Authors>zampx</Authors>
     <Description>The Ultimate Schedule I Mod Menu</Description>
     
@@ -74,6 +74,10 @@
       <HintPath>$(GamePath)\MelonLoader\Il2CppAssemblies\UnityEngine.InputLegacyModule.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Unity.InputSystem">
+      <HintPath>$(GamePath)\MelonLoader\Il2CppAssemblies\Unity.InputSystem.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     <Reference Include="UnityEngine.PhysicsModule">
       <HintPath>$(GamePath)\MelonLoader\Il2CppAssemblies\UnityEngine.PhysicsModule.dll</HintPath>
       <Private>false</Private>
@@ -116,8 +120,8 @@
     <GamePath>C:\Program Files (x86)\Steam\steamapps\common\Schedule I</GamePath>
   </PropertyGroup>
 
-  <!-- Post-build: Copy to Mods folder for testing (both Debug and Release) -->
-  <Target Name="CopyToMods" AfterTargets="Build">
+  <!-- Post-build: Copy to Mods folder for testing unless explicitly disabled. -->
+  <Target Name="CopyToMods" AfterTargets="Build" Condition="'$(SkipCopyToMods)' != 'true'">
     <Copy SourceFiles="$(OutputPath)$(AssemblyName).dll" 
           DestinationFolder="$(GamePath)\Mods\" 
           SkipUnchangedFiles="false" />

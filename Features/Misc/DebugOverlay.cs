@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using SewerMenu.Features.Base;
 using SewerMenu.Core.Logging;
@@ -31,10 +32,14 @@ namespace SewerMenu.Features.Misc
         private float _fpsAccumulator;
         private int _fpsFrames;
         private float _fpsTimeLeft;
+        private readonly List<DebugLine> _cachedLines = new List<DebugLine>(16);
 
         public override void OnEnable()
         {
             _fpsTimeLeft = _fpsUpdateInterval;
+            _fpsAccumulator = 0f;
+            _fpsFrames = 0;
+            RefreshCachedLines();
             SewerLogger.Debug("DebugOverlay enabled");
         }
 
@@ -48,22 +53,25 @@ namespace SewerMenu.Features.Misc
             if (!IsEnabled) return;
 
             // Update FPS counter
-            _fpsTimeLeft -= Time.deltaTime;
-            _fpsAccumulator += Time.timeScale / Time.deltaTime;
+            float deltaTime = Mathf.Max(Time.unscaledDeltaTime, 0.0001f);
+            _fpsTimeLeft -= deltaTime;
+            _fpsAccumulator += 1f / deltaTime;
             _fpsFrames++;
 
             if (_fpsTimeLeft <= 0f)
             {
-                _fps = _fpsAccumulator / _fpsFrames;
+                _fps = _fpsFrames > 0 ? _fpsAccumulator / _fpsFrames : 0f;
                 _fpsTimeLeft = _fpsUpdateInterval;
                 _fpsAccumulator = 0f;
                 _fpsFrames = 0;
+                RefreshCachedLines();
             }
         }
 
         public override void OnGUI()
         {
             if (!IsEnabled) return;
+            if (Event.current != null && Event.current.type != EventType.Repaint) return;
 
             InitializeStyles();
 
@@ -73,14 +81,7 @@ namespace SewerMenu.Features.Misc
             float lineHeight = 20f;
             float padding = 5f;
 
-            // Calculate height based on enabled options
-            int lines = 1; // Title
-            if (ShowFPS) lines++;
-            if (ShowPosition) lines += 3;
-            if (ShowRotation) lines += 3;
-            if (ShowVelocity) lines++;
-            if (ShowGameState) lines += 4;
-
+            int lines = 1 + _cachedLines.Count;
             float height = (lines * lineHeight) + (padding * 2);
 
             // Draw background
@@ -93,95 +94,9 @@ namespace SewerMenu.Features.Misc
                 "DEBUG INFO", _labelStyle);
             currentY += lineHeight;
 
-            var player = GameFinder.GetLocalPlayer();
-
-            // FPS
-            if (ShowFPS)
+            for (int i = 0; i < _cachedLines.Count; i++)
             {
-                DrawLine(ref currentY, x, width, padding, lineHeight, "FPS", $"{_fps:F1}");
-            }
-
-            // Position
-            if (ShowPosition && player != null)
-            {
-                var pos = player.transform.position;
-                DrawLine(ref currentY, x, width, padding, lineHeight, "Pos X", $"{pos.x:F2}");
-                DrawLine(ref currentY, x, width, padding, lineHeight, "Pos Y", $"{pos.y:F2}");
-                DrawLine(ref currentY, x, width, padding, lineHeight, "Pos Z", $"{pos.z:F2}");
-            }
-
-            // Rotation
-            if (ShowRotation && player != null)
-            {
-                var rot = player.transform.eulerAngles;
-                DrawLine(ref currentY, x, width, padding, lineHeight, "Rot X", $"{rot.x:F1}");
-                DrawLine(ref currentY, x, width, padding, lineHeight, "Rot Y", $"{rot.y:F1}");
-                DrawLine(ref currentY, x, width, padding, lineHeight, "Rot Z", $"{rot.z:F1}");
-            }
-
-            // Velocity
-            if (ShowVelocity && player != null)
-            {
-                var rb = player.GetComponent<Rigidbody>();
-                if (rb != null)
-                {
-                    DrawLine(ref currentY, x, width, padding, lineHeight, "Speed", $"{rb.velocity.magnitude:F2} m/s");
-                }
-                else
-                {
-                    var cc = player.GetComponent<CharacterController>();
-                    if (cc != null)
-                    {
-                        DrawLine(ref currentY, x, width, padding, lineHeight, "Speed", $"{cc.velocity.magnitude:F2} m/s");
-                    }
-                }
-            }
-
-            // Game State
-            if (ShowGameState)
-            {
-                // Time
-                var timeManager = GameFinder.GetTimeManager();
-                if (timeManager != null)
-                {
-                    var timeProp = timeManager.GetType().GetProperty("TimeOfDay");
-                    if (timeProp != null)
-                    {
-                        float time = (float)timeProp.GetValue(timeManager);
-                        DrawLine(ref currentY, x, width, padding, lineHeight, "Time", Features.World.TimeController.FormatTime(time));
-                    }
-
-                    var dayProp = timeManager.GetType().GetProperty("Day");
-                    if (dayProp != null)
-                    {
-                        int day = (int)dayProp.GetValue(timeManager);
-                        DrawLine(ref currentY, x, width, padding, lineHeight, "Day", day.ToString());
-                    }
-                }
-
-                // Money
-                var moneyManager = GameFinder.GetMoneyManager();
-                if (moneyManager != null)
-                {
-                    var cashProp = moneyManager.GetType().GetProperty("Cash");
-                    if (cashProp != null)
-                    {
-                        float cash = (float)cashProp.GetValue(moneyManager);
-                        DrawLine(ref currentY, x, width, padding, lineHeight, "Cash", $"${cash:N0}");
-                    }
-                }
-
-                // Wanted Level
-                var lawManager = GameFinder.GetLawManager();
-                if (lawManager != null)
-                {
-                    var wantedProp = lawManager.GetType().GetProperty("WantedLevel");
-                    if (wantedProp != null)
-                    {
-                        int wanted = (int)wantedProp.GetValue(lawManager);
-                        DrawLine(ref currentY, x, width, padding, lineHeight, "Wanted", new string('*', wanted));
-                    }
-                }
+                DrawLine(ref currentY, x, width, padding, lineHeight, _cachedLines[i].Label, _cachedLines[i].Value);
             }
         }
 
@@ -220,6 +135,119 @@ namespace SewerMenu.Features.Misc
                     fontSize = 12
                 };
                 _valueStyle.normal.textColor = Theme.Highlight;
+            }
+        }
+
+        private void RefreshCachedLines()
+        {
+            _cachedLines.Clear();
+
+            if (ShowFPS)
+            {
+                _cachedLines.Add(new DebugLine("FPS", $"{_fps:F1}"));
+            }
+
+            var player = GameFinder.GetLocalPlayer();
+            if (player != null)
+            {
+                if (ShowPosition)
+                {
+                    var pos = player.transform.position;
+                    _cachedLines.Add(new DebugLine("Pos X", $"{pos.x:F2}"));
+                    _cachedLines.Add(new DebugLine("Pos Y", $"{pos.y:F2}"));
+                    _cachedLines.Add(new DebugLine("Pos Z", $"{pos.z:F2}"));
+                }
+
+                if (ShowRotation)
+                {
+                    var rot = player.transform.eulerAngles;
+                    _cachedLines.Add(new DebugLine("Rot X", $"{rot.x:F1}"));
+                    _cachedLines.Add(new DebugLine("Rot Y", $"{rot.y:F1}"));
+                    _cachedLines.Add(new DebugLine("Rot Z", $"{rot.z:F1}"));
+                }
+
+                if (ShowVelocity)
+                {
+                    string speed = "";
+                    var rb = player.GetComponent<Rigidbody>();
+                    if (rb != null)
+                    {
+                        speed = $"{rb.velocity.magnitude:F2} m/s";
+                    }
+                    else
+                    {
+                        var cc = player.GetComponent<CharacterController>();
+                        if (cc != null)
+                        {
+                            speed = $"{cc.velocity.magnitude:F2} m/s";
+                        }
+                    }
+
+                    if (!string.IsNullOrEmpty(speed))
+                    {
+                        _cachedLines.Add(new DebugLine("Speed", speed));
+                    }
+                }
+            }
+
+            if (ShowGameState)
+            {
+                RefreshGameStateLines();
+            }
+        }
+
+        private void RefreshGameStateLines()
+        {
+            var timeManager = GameFinder.GetTimeManager();
+            if (timeManager != null)
+            {
+                var timeProp = timeManager.GetType().GetProperty("TimeOfDay");
+                if (timeProp != null)
+                {
+                    float time = (float)timeProp.GetValue(timeManager);
+                    _cachedLines.Add(new DebugLine("Time", Features.World.TimeController.FormatTime(time)));
+                }
+
+                var dayProp = timeManager.GetType().GetProperty("Day");
+                if (dayProp != null)
+                {
+                    int day = (int)dayProp.GetValue(timeManager);
+                    _cachedLines.Add(new DebugLine("Day", day.ToString()));
+                }
+            }
+
+            var moneyManager = GameFinder.GetMoneyManager();
+            if (moneyManager != null)
+            {
+                var cashProp = moneyManager.GetType().GetProperty("Cash");
+                if (cashProp != null)
+                {
+                    float cash = (float)cashProp.GetValue(moneyManager);
+                    _cachedLines.Add(new DebugLine("Cash", $"${cash:N0}"));
+                }
+            }
+
+            var lawManager = GameFinder.GetLawManager();
+            if (lawManager != null)
+            {
+                var wantedProp = lawManager.GetType().GetProperty("WantedLevel");
+                if (wantedProp != null)
+                {
+                    int wanted = (int)wantedProp.GetValue(lawManager);
+                    _cachedLines.Add(new DebugLine("Wanted", new string('*', wanted)));
+                }
+            }
+        }
+
+        private readonly struct DebugLine
+        {
+            public readonly string Label;
+            public readonly string Value;
+
+            public DebugLine(string label, string value)
+            {
+                Label = label;
+                Value = value;
             }
         }
     }

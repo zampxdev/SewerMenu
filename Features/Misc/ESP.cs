@@ -28,8 +28,8 @@ namespace SewerMenu.Features.Misc
         public bool ShowDistance { get; set; } = true;
         public bool ShowBoxes { get; set; } = false;
         public float MaxDistance { get; set; } = 100f;
-        public float RefreshInterval { get; set; } = 0.12f;
-        public int MaxLabelsPerFrame { get; set; } = 90;
+        public float RefreshInterval { get; set; } = 0.18f;
+        public int MaxLabelsPerFrame { get; set; } = 60;
 
         private readonly List<EspTarget> _policeTargets = new List<EspTarget>(32);
         private readonly List<EspTarget> _dealerTargets = new List<EspTarget>(32);
@@ -71,6 +71,7 @@ namespace SewerMenu.Features.Misc
         public override void OnGUI()
         {
             if (!IsEnabled) return;
+            if (Event.current != null && Event.current.type != EventType.Repaint) return;
 
             if (_labelStyle == null)
             {

@@ -13,18 +13,31 @@ namespace SewerMenu.Features.Misc
         public override string Description => "Improves performance without heavy visual downgrades";
         public override FeatureCategory Category => FeatureCategory.Misc;
 
-        public bool UseFrameCap { get; set; } = false;
-        public float TargetFrameRate { get; set; } = 120f;
-        public bool OptimizeShadows { get; set; } = true;
-        public float MaxShadowDistance { get; set; } = 140f;
-        public bool DisableRealtimeReflections { get; set; } = true;
-        public bool ReduceParticleRaycasts { get; set; } = true;
-        public bool UseDistanceCulling { get; set; } = false;
-        public float MaxViewDistance { get; set; } = 900f;
-        public bool UseOcclusionCulling { get; set; } = true;
-        public bool OptimizeLod { get; set; } = false;
-        public float LodBias { get; set; } = 1f;
-        public bool ReduceExpensiveQuality { get; set; } = true;
+        private bool _useFrameCap = true;
+        private float _targetFrameRate = 120f;
+        private bool _optimizeShadows = true;
+        private float _maxShadowDistance = 140f;
+        private bool _disableRealtimeReflections = true;
+        private bool _reduceParticleRaycasts = true;
+        private bool _useDistanceCulling = false;
+        private float _maxViewDistance = 900f;
+        private bool _useOcclusionCulling = true;
+        private bool _optimizeLod = false;
+        private float _lodBias = 1f;
+        private bool _reduceExpensiveQuality = true;
+
+        public bool UseFrameCap { get => _useFrameCap; set => SetOption(ref _useFrameCap, value); }
+        public float TargetFrameRate { get => _targetFrameRate; set => SetOption(ref _targetFrameRate, value); }
+        public bool OptimizeShadows { get => _optimizeShadows; set => SetOption(ref _optimizeShadows, value); }
+        public float MaxShadowDistance { get => _maxShadowDistance; set => SetOption(ref _maxShadowDistance, value); }
+        public bool DisableRealtimeReflections { get => _disableRealtimeReflections; set => SetOption(ref _disableRealtimeReflections, value); }
+        public bool ReduceParticleRaycasts { get => _reduceParticleRaycasts; set => SetOption(ref _reduceParticleRaycasts, value); }
+        public bool UseDistanceCulling { get => _useDistanceCulling; set => SetOption(ref _useDistanceCulling, value); }
+        public float MaxViewDistance { get => _maxViewDistance; set => SetOption(ref _maxViewDistance, value); }
+        public bool UseOcclusionCulling { get => _useOcclusionCulling; set => SetOption(ref _useOcclusionCulling, value); }
+        public bool OptimizeLod { get => _optimizeLod; set => SetOption(ref _optimizeLod, value); }
+        public float LodBias { get => _lodBias; set => SetOption(ref _lodBias, value); }
+        public bool ReduceExpensiveQuality { get => _reduceExpensiveQuality; set => SetOption(ref _reduceExpensiveQuality, value); }
 
         private bool _hasOriginalSettings;
         private int _originalVSyncCount;
@@ -42,6 +55,9 @@ namespace SewerMenu.Features.Misc
 
         public override void OnEnable()
         {
+            _cameraSettings.Clear();
+            _hasOriginalSettings = false;
+            _nextApplyTime = 0f;
             CaptureOriginalSettings();
             ApplySettings();
         }
@@ -49,6 +65,9 @@ namespace SewerMenu.Features.Misc
         public override void OnDisable()
         {
             RestoreSettings();
+            _cameraSettings.Clear();
+            _hasOriginalSettings = false;
+            _nextApplyTime = 0f;
         }
 
         public override void OnUpdate()
@@ -90,10 +109,26 @@ namespace SewerMenu.Features.Misc
         {
             try
             {
+                if (!_hasOriginalSettings)
+                {
+                    CaptureOriginalSettings();
+                }
+
+                if (!_hasOriginalSettings)
+                {
+                    return;
+                }
+
                 if (UseFrameCap)
                 {
-                    QualitySettings.vSyncCount = 0;
-                    Application.targetFrameRate = Mathf.RoundToInt(Mathf.Clamp(TargetFrameRate, 30f, 240f));
+                    if (QualitySettings.vSyncCount == 0)
+                    {
+                        Application.targetFrameRate = Mathf.RoundToInt(Mathf.Clamp(TargetFrameRate, 30f, 240f));
+                    }
+                }
+                else
+                {
+                    RestoreFrameSettings();
                 }
 
                 if (OptimizeShadows)
@@ -104,20 +139,36 @@ namespace SewerMenu.Features.Misc
                         QualitySettings.shadowCascades = Mathf.Min(QualitySettings.shadowCascades, 2);
                     }
                 }
+                else
+                {
+                    RestoreShadowSettings();
+                }
 
                 if (DisableRealtimeReflections)
                 {
                     QualitySettings.realtimeReflectionProbes = false;
+                }
+                else
+                {
+                    QualitySettings.realtimeReflectionProbes = _originalRealtimeReflectionProbes;
                 }
 
                 if (ReduceParticleRaycasts)
                 {
                     QualitySettings.particleRaycastBudget = Mathf.Min(QualitySettings.particleRaycastBudget, 512);
                 }
+                else
+                {
+                    QualitySettings.particleRaycastBudget = _originalParticleRaycastBudget;
+                }
 
                 if (OptimizeLod)
                 {
                     QualitySettings.lodBias = Mathf.Min(QualitySettings.lodBias, Mathf.Clamp(LodBias, 0.75f, 1.15f));
+                }
+                else
+                {
+                    QualitySettings.lodBias = _originalLodBias;
                 }
 
                 if (ReduceExpensiveQuality)
@@ -133,6 +184,10 @@ namespace SewerMenu.Features.Misc
                     {
                         QualitySettings.resolutionScalingFixedDPIFactor = 1f;
                     }
+                }
+                else
+                {
+                    RestoreExpensiveQualitySettings();
                 }
 
                 ApplyCameraCulling();
@@ -170,6 +225,10 @@ namespace SewerMenu.Features.Misc
                     {
                         camera.useOcclusionCulling = true;
                     }
+                    else
+                    {
+                        camera.useOcclusionCulling = _cameraSettings[id].UseOcclusionCulling;
+                    }
 
                     if (UseDistanceCulling)
                     {
@@ -197,6 +256,13 @@ namespace SewerMenu.Features.Misc
                         distances[9] = maxDistance;
 
                         camera.layerCullDistances = distances;
+                    }
+                    else
+                    {
+                        var settings = _cameraSettings[id];
+                        camera.farClipPlane = settings.FarClipPlane;
+                        camera.layerCullSpherical = settings.LayerCullSpherical;
+                        camera.layerCullDistances = CopyLayerCullDistances(settings.LayerCullDistances);
                     }
                 }
             }
@@ -230,6 +296,31 @@ namespace SewerMenu.Features.Misc
             }
         }
 
+        private void RestoreFrameSettings()
+        {
+            if (!_hasOriginalSettings) return;
+
+            QualitySettings.vSyncCount = _originalVSyncCount;
+            Application.targetFrameRate = _originalTargetFrameRate;
+        }
+
+        private void RestoreShadowSettings()
+        {
+            if (!_hasOriginalSettings) return;
+
+            QualitySettings.shadowDistance = _originalShadowDistance;
+            QualitySettings.shadowCascades = _originalShadowCascades;
+        }
+
+        private void RestoreExpensiveQualitySettings()
+        {
+            if (!_hasOriginalSettings) return;
+
+            QualitySettings.pixelLightCount = _originalPixelLightCount;
+            QualitySettings.antiAliasing = _originalAntiAliasing;
+            QualitySettings.resolutionScalingFixedDPIFactor = _originalResolutionScalingFixedDPIFactor;
+        }
+
         private void RestoreCameraSettings()
         {
             try
@@ -259,6 +350,28 @@ namespace SewerMenu.Features.Misc
             var copy = new float[source.Length];
             Array.Copy(source, copy, source.Length);
             return copy;
+        }
+
+        private void RequestApply()
+        {
+            if (IsEnabled)
+            {
+                _nextApplyTime = 0f;
+            }
+        }
+
+        private void SetOption(ref bool field, bool value)
+        {
+            if (field == value) return;
+            field = value;
+            RequestApply();
+        }
+
+        private void SetOption(ref float field, float value)
+        {
+            if (Mathf.Approximately(field, value)) return;
+            field = value;
+            RequestApply();
         }
 
         private struct CameraSettings

@@ -37,6 +37,10 @@ namespace SewerMenu.UI
         private static readonly Dictionary<string, float> _hoverAnimations = new Dictionary<string, float>();
         private static readonly Dictionary<string, float> _sectionAnimations = new Dictionary<string, float>();
         private static readonly Dictionary<string, Texture2D> _roundedTextureCache = new Dictionary<string, Texture2D>();
+        private static readonly Dictionary<string, GUIStyle> _roundedStyleCache = new Dictionary<string, GUIStyle>();
+        private static readonly Dictionary<string, GUIStyle> _labelStyleCache = new Dictionary<string, GUIStyle>();
+        private static AnimationQualityMode _animationQuality = AnimationQualityMode.Balanced;
+        private static float _smoothedFrameTime = 1f / 60f;
         
         // Colors - SewerMenu 2.0 beta theme
         public static readonly Color AccentColor = new Color(0.55f, 0.84f, 0.20f, 1f);
@@ -207,9 +211,18 @@ namespace SewerMenu.UI
                 return cached;
             }
 
-            if (_roundedTextureCache.Count > 700)
+            if (_roundedTextureCache.Count > 512)
             {
+                foreach (var cachedTexture in _roundedTextureCache.Values)
+                {
+                    if (cachedTexture != null)
+                    {
+                        UnityEngine.Object.Destroy(cachedTexture);
+                    }
+                }
+
                 _roundedTextureCache.Clear();
+                _roundedStyleCache.Clear();
             }
 
             var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
@@ -263,6 +276,31 @@ namespace SewerMenu.UI
             texture.Apply();
             _roundedTextureCache[key] = texture;
             return texture;
+        }
+
+        private static GUIStyle GetRoundedStyle(int radius, Color fillColor, Color borderColor, int borderWidth)
+        {
+            radius = Mathf.Clamp(radius, 0, 32);
+            borderWidth = Mathf.Clamp(borderWidth, 0, Mathf.Max(1, radius));
+
+            string key = "style:r" + radius + "b" + borderWidth + "|" + ColorKey(fillColor) + "|" + ColorKey(borderColor);
+            if (_roundedStyleCache.TryGetValue(key, out var cached) && cached != null)
+            {
+                return cached;
+            }
+
+            int textureSize = Mathf.Clamp(radius * 4 + 16, 24, 96);
+            var texture = GetRoundedTexture(textureSize, textureSize, radius, fillColor, borderColor, borderWidth);
+            var style = new GUIStyle();
+            style.normal.background = texture;
+
+            int slice = Mathf.Max(1, radius + borderWidth + 1);
+            style.border = new RectOffset(slice, slice, slice, slice);
+            style.margin = new RectOffset(0, 0, 0, 0);
+            style.padding = new RectOffset(0, 0, 0, 0);
+
+            _roundedStyleCache[key] = style;
+            return style;
         }
         
         private static Texture2D MakePillTexture(int width, int height, Color fillColor, Color borderColor)
@@ -419,6 +457,9 @@ namespace SewerMenu.UI
         {
             if (!_initialized) Initialize();
             if (!_stylesInitialized) CreateStyles();
+
+            float frameTime = Mathf.Clamp(Time.unscaledDeltaTime, 0.001f, 0.12f);
+            _smoothedFrameTime = Mathf.Lerp(_smoothedFrameTime, frameTime, 0.08f);
             
             _previousSkin = GUI.skin;
             if (_customSkin != null)
@@ -429,6 +470,53 @@ namespace SewerMenu.UI
             GUI.backgroundColor = Color.white;
             GUI.contentColor = TextColor;
         }
+
+        public static void SetAnimationQuality(string quality)
+        {
+            switch (quality)
+            {
+                case "Full":
+                    _animationQuality = AnimationQualityMode.Full;
+                    break;
+                case "Low":
+                    _animationQuality = AnimationQualityMode.Low;
+                    break;
+                case "Auto":
+                    _animationQuality = AnimationQualityMode.Auto;
+                    break;
+                default:
+                    _animationQuality = AnimationQualityMode.Balanced;
+                    break;
+            }
+        }
+
+        public static float AnimationStrength
+        {
+            get
+            {
+                switch (_animationQuality)
+                {
+                    case AnimationQualityMode.Full:
+                        return 1f;
+                    case AnimationQualityMode.Low:
+                        return 0.28f;
+                    case AnimationQualityMode.Auto:
+                        float fps = 1f / Mathf.Max(0.001f, _smoothedFrameTime);
+                        if (fps >= 58f) return 0.85f;
+                        if (fps >= 45f) return 0.62f;
+                        if (fps >= 32f) return 0.38f;
+                        return 0.18f;
+                    default:
+                        return 0.66f;
+                }
+            }
+        }
+
+        public static bool FancyAnimations => AnimationStrength >= 0.55f;
+        public static bool FullAnimations => AnimationStrength >= 0.82f;
+        public static Rect LastToggleRect { get; private set; }
+        public static bool LastToggleHovered { get; private set; }
+        public static bool LastToggleClicked { get; private set; }
         
         private static void CreateStyles()
         {
@@ -530,29 +618,63 @@ namespace SewerMenu.UI
             GUI.color = oldColor;
         }
 
+        public static GUIStyle GetLabelStyle(int fontSize, FontStyle fontStyle = FontStyle.Normal, TextAnchor alignment = TextAnchor.UpperLeft, TextClipping clipping = TextClipping.Clip)
+        {
+            if (!_stylesInitialized) CreateStyles();
+
+            string key = fontSize + "|" + (int)fontStyle + "|" + (int)alignment + "|" + (int)clipping;
+            if (_labelStyleCache.TryGetValue(key, out var cached) && cached != null)
+            {
+                return cached;
+            }
+
+            var style = new GUIStyle(GUI.skin.label)
+            {
+                fontSize = fontSize,
+                fontStyle = fontStyle,
+                alignment = alignment,
+                clipping = clipping
+            };
+
+            _labelStyleCache[key] = style;
+            return style;
+        }
+
         public static void DrawRoundedRect(Rect rect, Color fillColor, Color borderColor, int radius = 7, int borderWidth = 1)
         {
             if (!_initialized) Initialize();
-            int width = Mathf.Max(1, Mathf.RoundToInt(rect.width));
-            int height = Mathf.Max(1, Mathf.RoundToInt(rect.height));
-            var texture = GetRoundedTexture(width, height, radius, fillColor, borderColor, borderWidth);
+            if (rect.width <= 0f || rect.height <= 0f) return;
+
+            Event currentEvent = Event.current;
+            if (currentEvent != null && currentEvent.type != EventType.Repaint) return;
 
             var oldColor = GUI.color;
             GUI.color = Color.white;
-            GUI.DrawTexture(rect, texture, ScaleMode.StretchToFill, true);
+            GetRoundedStyle(radius, fillColor, borderColor, borderWidth).Draw(rect, GUIContent.none, false, false, false, false);
             GUI.color = oldColor;
         }
 
         public static void DrawSoftGlow(Rect rect, Color color, float alpha = 0.22f, int radius = 8)
         {
+            float strength = AnimationStrength;
+            if (strength < 0.2f) return;
+
+            alpha *= strength;
             DrawRoundedRect(new Rect(rect.x - 3f, rect.y - 3f, rect.width + 6f, rect.height + 6f), new Color(color.r, color.g, color.b, alpha * 0.25f), Color.clear, radius + 3, 0);
-            DrawRoundedRect(new Rect(rect.x - 1f, rect.y - 1f, rect.width + 2f, rect.height + 2f), new Color(color.r, color.g, color.b, alpha * 0.45f), Color.clear, radius + 1, 0);
+            if (FancyAnimations)
+            {
+                DrawRoundedRect(new Rect(rect.x - 1f, rect.y - 1f, rect.width + 2f, rect.height + 2f), new Color(color.r, color.g, color.b, alpha * 0.45f), Color.clear, radius + 1, 0);
+            }
         }
 
         public static bool DrawButtonRect(Rect rect, string text, Color baseColor, Color hoverColor, Color textColor, int radius = 7, bool selected = false, int fontSize = 11)
         {
             bool hovered = rect.Contains(Event.current.mousePosition);
-            string key = "button:" + text + ":" + Mathf.RoundToInt(rect.x) + ":" + Mathf.RoundToInt(rect.y) + ":" + Mathf.RoundToInt(rect.width) + ":" + Mathf.RoundToInt(rect.height);
+            string key = "button:" + text + ":" +
+                Mathf.RoundToInt(rect.x / 8f) + ":" +
+                Mathf.RoundToInt(rect.y / 8f) + ":" +
+                Mathf.RoundToInt(rect.width / 8f) + ":" +
+                Mathf.RoundToInt(rect.height / 8f);
             if (!_hoverAnimations.TryGetValue(key, out float hoverAnim))
             {
                 hoverAnim = hovered ? 1f : 0f;
@@ -560,7 +682,15 @@ namespace SewerMenu.UI
 
             if (Event.current.type == EventType.Repaint)
             {
-                hoverAnim = Mathf.MoveTowards(hoverAnim, hovered ? 1f : 0f, Time.unscaledDeltaTime * 10f);
+                float strength = AnimationStrength;
+                hoverAnim = strength < 0.25f
+                    ? (hovered ? 1f : 0f)
+                    : Mathf.MoveTowards(hoverAnim, hovered ? 1f : 0f, Time.unscaledDeltaTime * Mathf.Lerp(18f, 10f, strength));
+                if (_hoverAnimations.Count > 384)
+                {
+                    _hoverAnimations.Clear();
+                }
+
                 _hoverAnimations[key] = hoverAnim;
             }
 
@@ -569,7 +699,7 @@ namespace SewerMenu.UI
                 ? new Color(AccentGlow.r, AccentGlow.g, AccentGlow.b, 0.92f)
                 : Color.Lerp(new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.65f), new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.7f), hoverAnim);
 
-            if (hoverAnim > 0.01f || selected)
+            if ((hoverAnim > 0.01f || selected) && FancyAnimations)
             {
                 DrawSoftGlow(rect, selected ? AccentColor : hoverColor, selected ? 0.18f : 0.10f, radius);
             }
@@ -579,28 +709,31 @@ namespace SewerMenu.UI
 
             var oldContentColor = GUI.contentColor;
             GUI.contentColor = textColor;
-            var style = new GUIStyle(GUI.skin.label)
-            {
-                alignment = TextAnchor.MiddleCenter,
-                fontSize = fontSize,
-                fontStyle = selected ? FontStyle.Bold : FontStyle.Normal
-            };
+            var style = GetLabelStyle(fontSize, selected ? FontStyle.Bold : FontStyle.Normal, TextAnchor.MiddleCenter);
             GUI.Label(rect, text, style);
             GUI.contentColor = oldContentColor;
 
-            return GUI.Button(rect, "", GUIStyle.none);
+            Event e = Event.current;
+            if (e != null && e.type == EventType.MouseDown && e.button == 0 && hovered)
+            {
+                e.Use();
+                return true;
+            }
+
+            return false;
         }
 
         public static void DrawWindowPanel(Rect rect)
         {
             if (!_initialized) Initialize();
 
-            float pulse = 0.5f + Mathf.Sin(Time.unscaledTime * 2.2f) * 0.5f;
+            float strength = AnimationStrength;
+            float pulse = FullAnimations ? 0.5f + Mathf.Sin(Time.unscaledTime * 2.2f) * 0.5f : 0.5f;
             DrawRoundedRect(new Rect(rect.x + 8f, rect.y + 10f, rect.width, rect.height), new Color(0f, 0f, 0f, 0.34f), Color.clear, 8, 0);
-            DrawSoftGlow(rect, AccentColor, 0.12f + 0.04f * pulse, 8);
+            DrawSoftGlow(rect, AccentColor, (0.09f + 0.04f * pulse) * strength, 8);
             DrawRoundedRect(rect, BackgroundColor, new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.38f), 8, 1);
             DrawRoundedRect(new Rect(rect.x + 1f, rect.y + 1f, rect.width - 2f, 46f), new Color(1f, 1f, 1f, 0.035f), Color.clear, 7, 0);
-            DrawSolid(new Rect(rect.x + 18f, rect.y + 1f, rect.width - 36f, 1f), new Color(AccentGlow.r, AccentGlow.g, AccentGlow.b, 0.34f + 0.10f * pulse));
+            DrawSolid(new Rect(rect.x + 18f, rect.y + 1f, rect.width - 36f, 1f), new Color(AccentGlow.r, AccentGlow.g, AccentGlow.b, 0.30f + 0.10f * pulse * strength));
         }
         
         public static void DrawHeader(string text)
@@ -612,7 +745,7 @@ namespace SewerMenu.UI
 
             var oldContentColor = GUI.contentColor;
             GUI.contentColor = TextColor;
-            var style = new GUIStyle(GUI.skin.label) { fontSize = 13, fontStyle = FontStyle.Bold, clipping = TextClipping.Clip };
+            var style = GetLabelStyle(13, FontStyle.Bold);
             GUI.Label(new Rect(panelRect.x + 12, panelRect.y + 4, panelRect.width - 24, 24), text, style);
             GUI.contentColor = oldContentColor;
 
@@ -632,7 +765,8 @@ namespace SewerMenu.UI
 
             if (Event.current.type == EventType.Repaint)
             {
-                anim = Mathf.MoveTowards(anim, 1f, Time.unscaledDeltaTime * 7.5f);
+                float strength = AnimationStrength;
+                anim = strength < 0.25f ? 1f : Mathf.MoveTowards(anim, 1f, Time.unscaledDeltaTime * Mathf.Lerp(12f, 7.5f, strength));
                 _sectionAnimations[key] = anim;
             }
 
@@ -645,7 +779,7 @@ namespace SewerMenu.UI
             var oldColor = GUI.contentColor;
             GUI.contentColor = new Color(AccentGlow.r, AccentGlow.g, AccentGlow.b, AccentGlow.a * Mathf.Lerp(0.55f, 1f, eased));
             Rect labelRect = new Rect(bandRect.x + 20, bandRect.y + 4, bandRect.width - 28, bandRect.height - 5);
-            var sectionStyle = new GUIStyle(GUI.skin.label) { fontSize = 12, fontStyle = FontStyle.Bold, clipping = TextClipping.Clip };
+            var sectionStyle = GetLabelStyle(12, FontStyle.Bold);
             GUI.Label(labelRect, title.ToUpper(), sectionStyle);
             GUI.contentColor = oldColor;
 
@@ -666,17 +800,25 @@ namespace SewerMenu.UI
 
             if (Event.current.type == EventType.Repaint)
             {
-                anim = Mathf.MoveTowards(anim, value ? 1f : 0f, Time.unscaledDeltaTime * 9f);
+                float strength = AnimationStrength;
+                anim = strength < 0.25f
+                    ? (value ? 1f : 0f)
+                    : Mathf.MoveTowards(anim, value ? 1f : 0f, Time.unscaledDeltaTime * Mathf.Lerp(15f, 9f, strength));
                 _toggleAnimations[key] = anim;
             }
 
             float eased = 1f - Mathf.Pow(1f - anim, 3f);
             bool hovered = rowRect.Contains(Event.current.mousePosition);
             bool newValue = value;
-            if (GUI.Button(rowRect, "", GUIStyle.none))
+            Event e = Event.current;
+            if (e != null && e.type == EventType.MouseDown && e.button == 0 && hovered)
             {
                 newValue = !value;
+                e.Use();
             }
+            LastToggleRect = rowRect;
+            LastToggleHovered = hovered;
+            LastToggleClicked = newValue != value;
 
             Color rowColor = hovered
                 ? new Color(0.105f, 0.132f, 0.118f, 0.96f)
@@ -698,7 +840,7 @@ namespace SewerMenu.UI
 
             Color switchFill = Color.Lerp(new Color(0.14f, 0.16f, 0.19f, 1f), AccentColor, eased);
             Color switchBorder = Color.Lerp(new Color(0.27f, 0.30f, 0.34f, 1f), AccentDark, eased);
-            if (anim > 0.01f)
+            if (anim > 0.01f && FancyAnimations)
             {
                 DrawSoftGlow(toggleRect, AccentColor, 0.22f * anim, 12);
             }
@@ -717,13 +859,13 @@ namespace SewerMenu.UI
 
             var oldContentColor = GUI.contentColor;
             GUI.contentColor = Color.Lerp(TextMutedColor, TextColor, Mathf.Max(anim, hovered ? 0.45f : 0f));
-            var labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 12, fontStyle = value ? FontStyle.Bold : FontStyle.Normal, clipping = TextClipping.Clip };
+            var labelStyle = GetLabelStyle(12, value ? FontStyle.Bold : FontStyle.Normal);
             GUI.Label(new Rect(rowRect.x + 14f, rowRect.y + 8f, rowRect.width - 84f, 22f), label, labelStyle);
 
             if (!string.IsNullOrEmpty(description))
             {
                 GUI.contentColor = new Color(TextMutedColor.r, TextMutedColor.g, TextMutedColor.b, hovered ? 0.9f : 0.68f);
-                var descStyle = new GUIStyle(GUI.skin.label) { fontSize = 10, clipping = TextClipping.Clip };
+                var descStyle = GetLabelStyle(10);
                 GUI.Label(new Rect(rowRect.x + 14f, rowRect.y + 31f, rowRect.width - 86f, 18f), description, descStyle);
             }
 
@@ -753,7 +895,7 @@ namespace SewerMenu.UI
             // Value text
             oldContentColor = GUI.contentColor;
             GUI.contentColor = AccentGlow;
-            var valueStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 11 };
+            var valueStyle = GetLabelStyle(11, FontStyle.Normal, TextAnchor.MiddleCenter);
             GUI.Label(valueRect, value.ToString(format) + suffix, valueStyle);
             GUI.contentColor = oldContentColor;
             xPos += 56;
@@ -915,6 +1057,37 @@ namespace SewerMenu.UI
             GUILayout.Label(text);
             GUI.contentColor = oldColor;
         }
+
+        public static void DrawEmptyState(string title, string message, StatusType type = StatusType.Normal)
+        {
+            Rect rect = GUILayoutUtility.GetRect(0, 72, GUILayout.ExpandWidth(true));
+            Color accent = GetStatusColor(type);
+
+            DrawRoundedRect(rect, new Color(0.045f, 0.058f, 0.053f, 0.82f), new Color(accent.r, accent.g, accent.b, 0.34f), 7, 1);
+            DrawRoundedRect(new Rect(rect.x + 10f, rect.y + 12f, 4f, rect.height - 24f), new Color(accent.r, accent.g, accent.b, 0.72f), Color.clear, 3, 0);
+
+            var oldContentColor = GUI.contentColor;
+            GUI.contentColor = TextColor;
+            GUI.Label(new Rect(rect.x + 24f, rect.y + 11f, rect.width - 34f, 22f), title, GetLabelStyle(12, FontStyle.Bold));
+            GUI.contentColor = TextMutedColor;
+            GUI.Label(new Rect(rect.x + 24f, rect.y + 33f, rect.width - 34f, 28f), message, GetLabelStyle(10));
+            GUI.contentColor = oldContentColor;
+        }
+
+        private static Color GetStatusColor(StatusType type)
+        {
+            switch (type)
+            {
+                case StatusType.Success:
+                    return SuccessColor;
+                case StatusType.Warning:
+                    return WarningColor;
+                case StatusType.Error:
+                    return ErrorColor;
+                default:
+                    return AccentColor;
+            }
+        }
         
         /// <summary>
         /// DEPRECATED: Text fields don't work in IL2CPP. Use DrawNumericInput or DrawQuantitySelector instead.
@@ -979,7 +1152,7 @@ namespace SewerMenu.UI
             // Value text
             var oldContentColor2 = GUI.contentColor;
             GUI.contentColor = AccentGlow;
-            var valueStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter };
+            var valueStyle = GetLabelStyle(12, FontStyle.Normal, TextAnchor.MiddleCenter);
             GUI.Label(valueRect, value.ToString(format), valueStyle);
             GUI.contentColor = oldContentColor2;
             xPos += 90;
@@ -1071,7 +1244,7 @@ namespace SewerMenu.UI
             // Value text
             var oldContentColor2 = GUI.contentColor;
             GUI.contentColor = AccentGlow;
-            var valueStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter };
+            var valueStyle = GetLabelStyle(12, FontStyle.Normal, TextAnchor.MiddleCenter);
             GUI.Label(valueRect, currentValue.ToString(), valueStyle);
             GUI.contentColor = oldContentColor2;
             xPos += 60;
@@ -1151,7 +1324,7 @@ namespace SewerMenu.UI
             // Text overlay
             var oldContentColor2 = GUI.contentColor;
             GUI.contentColor = TextColor;
-            var textStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 10 };
+            var textStyle = GetLabelStyle(10, FontStyle.Normal, TextAnchor.MiddleCenter);
             GUI.Label(rect, $"{value:F0} / {max:F0}", textStyle);
             GUI.contentColor = oldContentColor2;
             
@@ -1168,6 +1341,14 @@ namespace SewerMenu.UI
             Success,
             Warning,
             Error
+        }
+
+        private enum AnimationQualityMode
+        {
+            Full,
+            Balanced,
+            Low,
+            Auto
         }
         
         #endregion

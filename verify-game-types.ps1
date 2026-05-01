@@ -5,7 +5,7 @@ if ([string]::IsNullOrWhiteSpace($gamePath)) {
     $gamePath = "C:\Program Files (x86)\Steam\steamapps\common\Schedule I"
 }
 
-dotnet build --configuration Debug
+dotnet build --configuration Debug /p:SkipCopyToMods=true
 if ($LASTEXITCODE -ne 0) {
     exit $LASTEXITCODE
 }

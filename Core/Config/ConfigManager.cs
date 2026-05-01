@@ -134,12 +134,12 @@ namespace SewerMenu.Core.Config
         public void QueueSave()
         {
             _pendingSave = true;
-            _lastSaveTime = UnityEngine.Time.time;
+            _lastSaveTime = UnityEngine.Time.unscaledTime;
         }
         
         public void ProcessPendingSave()
         {
-            if (_pendingSave && UnityEngine.Time.time - _lastSaveTime >= SaveDebounceTime)
+            if (_pendingSave && UnityEngine.Time.unscaledTime - _lastSaveTime >= SaveDebounceTime)
             {
                 Save();
             }
@@ -234,6 +234,13 @@ namespace SewerMenu.Core.Config
             Config.Features ??= new System.Collections.Generic.Dictionary<string, FeatureConfig>();
             Config.TeleportLocations ??= new System.Collections.Generic.List<TeleportLocation>();
             Config.Presets ??= new System.Collections.Generic.Dictionary<string, PresetConfig>();
+            Config.UI.FavoriteFeatureIds = NormalizeFavoriteFeatureIds(Config.UI.FavoriteFeatureIds);
+
+            string animationQuality = Config.UI.AnimationQuality;
+            if (animationQuality != "Full" && animationQuality != "Balanced" && animationQuality != "Low" && animationQuality != "Auto")
+            {
+                Config.UI.AnimationQuality = "Balanced";
+            }
             
             if (Config.Version != ModInfo.Version)
             {
@@ -257,6 +264,39 @@ namespace SewerMenu.Core.Config
             {
                 SewerLogger.Error("Failed to backup corrupted config", ex);
             }
+        }
+
+        private static System.Collections.Generic.List<string> NormalizeFavoriteFeatureIds(System.Collections.Generic.List<string> favorites)
+        {
+            var defaults = new[]
+            {
+                "godmode",
+                "infinitestamina",
+                "infiniteammo",
+                "esp",
+                "fpsoptimizer",
+                "itemspawner"
+            };
+
+            if (favorites == null || favorites.Count == 0)
+            {
+                return new System.Collections.Generic.List<string>(defaults);
+            }
+
+            var normalized = new System.Collections.Generic.List<string>(favorites.Count);
+            var seen = new System.Collections.Generic.HashSet<string>(System.StringComparer.OrdinalIgnoreCase);
+            for (int i = 0; i < favorites.Count; i++)
+            {
+                string id = favorites[i];
+                if (string.IsNullOrWhiteSpace(id) || !seen.Add(id))
+                {
+                    continue;
+                }
+
+                normalized.Add(id);
+            }
+
+            return normalized.Count > 0 ? normalized : new System.Collections.Generic.List<string>(defaults);
         }
         
         #endregion
