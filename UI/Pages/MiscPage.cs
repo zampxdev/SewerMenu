@@ -45,8 +45,26 @@ namespace SewerMenu.UI.Pages
                     
                     var oldColor = GUI.contentColor;
                     GUI.contentColor = SewerSkin.TextMutedColor;
-                    GUILayout.Label("   Controls: WASD move, E/Q up/down, RMB look");
+                    GUILayout.Label("   WASD move, Mouse look, Shift fast, Space/Ctrl up/down");
                     GUI.contentColor = oldColor;
+                }
+            }
+
+            // Combat Section
+            DrawSection("COMBAT");
+
+            var infiniteAmmo = FeatureManager.Instance.GetFeature<InfiniteAmmo>("infiniteammo");
+            if (infiniteAmmo != null)
+            {
+                bool newValue = DrawToggle("Infinite Ammo", infiniteAmmo.IsEnabled, "Keeps gun ammo full");
+                if (newValue != infiniteAmmo.IsEnabled) infiniteAmmo.IsEnabled = newValue;
+
+                if (infiniteAmmo.IsEnabled)
+                {
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Space(20);
+                    infiniteAmmo.MinimumAmmo = Mathf.RoundToInt(DrawSlider("Ammo Buffer", infiniteAmmo.MinimumAmmo, 30f, 999f, "F0"));
+                    GUILayout.EndHorizontal();
                 }
             }
             
@@ -86,6 +104,64 @@ namespace SewerMenu.UI.Pages
                     esp.MaxDistance = DrawSlider("Max Distance", esp.MaxDistance, 10f, 500f, "F0");
                     GUILayout.Label("m", GUILayout.Width(15));
                     GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Space(20);
+                    esp.RefreshInterval = DrawSlider("Scan Delay", esp.RefreshInterval, 0.05f, 0.75f, "F2");
+                    GUILayout.Label("s", GUILayout.Width(15));
+                    GUILayout.EndHorizontal();
+
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Space(20);
+                    esp.MaxLabelsPerFrame = Mathf.RoundToInt(DrawSlider("Label Limit", esp.MaxLabelsPerFrame, 25f, 150f, "F0"));
+                    GUILayout.EndHorizontal();
+                }
+            }
+
+            // Performance Section
+            DrawSection("PERFORMANCE");
+
+            var fpsOptimizer = FeatureManager.Instance.GetFeature<FPSOptimizer>("fpsoptimizer");
+            if (fpsOptimizer != null)
+            {
+                bool newValue = DrawToggle("FPS Optimizer", fpsOptimizer.IsEnabled, "Clean performance profile with minimal visual loss");
+                if (newValue != fpsOptimizer.IsEnabled) fpsOptimizer.IsEnabled = newValue;
+
+                if (fpsOptimizer.IsEnabled)
+                {
+                    fpsOptimizer.UseOcclusionCulling = DrawToggle("Camera Occlusion", fpsOptimizer.UseOcclusionCulling, "Lets Unity skip hidden objects when available");
+                    fpsOptimizer.ReduceExpensiveQuality = DrawToggle("Clean Quality Trim", fpsOptimizer.ReduceExpensiveQuality, "Limits costly lights, AA spikes, and DPI overscale");
+                    fpsOptimizer.OptimizeShadows = DrawToggle("Shadow Budget", fpsOptimizer.OptimizeShadows, "Caps expensive far shadow rendering");
+                    fpsOptimizer.DisableRealtimeReflections = DrawToggle("Static Reflections", fpsOptimizer.DisableRealtimeReflections, "Disables realtime probe updates");
+                    fpsOptimizer.ReduceParticleRaycasts = DrawToggle("Particle Budget", fpsOptimizer.ReduceParticleRaycasts, "Reduces particle collision raycast cost");
+                    fpsOptimizer.UseDistanceCulling = DrawToggle("View Distance Cap", fpsOptimizer.UseDistanceCulling, "Optional stronger boost, can affect far scenery");
+                    fpsOptimizer.OptimizeLod = DrawToggle("LOD Bias", fpsOptimizer.OptimizeLod, "Optional model detail reduction");
+                    fpsOptimizer.UseFrameCap = DrawToggle("Frame Cap", fpsOptimizer.UseFrameCap, "Caps FPS to reduce CPU/GPU spikes");
+
+                    if (fpsOptimizer.UseDistanceCulling)
+                    {
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Space(20);
+                        fpsOptimizer.MaxViewDistance = DrawSlider("View Distance", fpsOptimizer.MaxViewDistance, 500f, 1500f, "F0");
+                        GUILayout.Label("m", GUILayout.Width(15));
+                        GUILayout.EndHorizontal();
+                    }
+
+                    if (fpsOptimizer.OptimizeLod)
+                    {
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Space(20);
+                        fpsOptimizer.LodBias = DrawSlider("LOD Bias", fpsOptimizer.LodBias, 0.75f, 1.15f, "F2");
+                        GUILayout.EndHorizontal();
+                    }
+
+                    if (fpsOptimizer.UseFrameCap)
+                    {
+                        GUILayout.BeginHorizontal();
+                        GUILayout.Space(20);
+                        fpsOptimizer.TargetFrameRate = DrawSlider("Target FPS", fpsOptimizer.TargetFrameRate, 30f, 240f, "F0");
+                        GUILayout.EndHorizontal();
+                    }
                 }
             }
             

@@ -117,6 +117,12 @@ namespace SewerMenu.Features.Base
         }
         
         /// <inheritdoc/>
+        public virtual void OnLateUpdate()
+        {
+            // Override in derived classes - use for camera control
+        }
+        
+        /// <inheritdoc/>
         public virtual void OnGUI()
         {
             // Override in derived classes

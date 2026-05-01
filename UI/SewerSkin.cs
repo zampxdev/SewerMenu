@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using SewerMenu.Core.Logging;
 
@@ -10,6 +11,7 @@ namespace SewerMenu.UI
         
         private static bool _initialized = false;
         private static GUISkin _customSkin;
+        private static GUISkin _previousSkin;
         
         private static Texture2D _windowBackground;
         private static Texture2D _buttonNormal;
@@ -31,24 +33,28 @@ namespace SewerMenu.UI
         private static Texture2D _sliderTrackBg;
         private static Texture2D _sliderTrackFill;
         private static Texture2D _sliderKnob;
+        private static readonly Dictionary<string, float> _toggleAnimations = new Dictionary<string, float>();
+        private static readonly Dictionary<string, float> _hoverAnimations = new Dictionary<string, float>();
+        private static readonly Dictionary<string, float> _sectionAnimations = new Dictionary<string, float>();
+        private static readonly Dictionary<string, Texture2D> _roundedTextureCache = new Dictionary<string, Texture2D>();
         
-        // Colors - "Midnight" theme
-        public static readonly Color AccentColor = new Color(0.345f, 0.651f, 1.0f, 1f);
-        public static readonly Color AccentDark = new Color(0.22f, 0.545f, 0.992f, 1f);
-        public static readonly Color AccentGlow = new Color(0.475f, 0.753f, 1.0f, 1f);
-        public static readonly Color BackgroundColor = new Color(0.051f, 0.067f, 0.09f, 0.98f);
-        public static readonly Color PanelColor = new Color(0.086f, 0.106f, 0.133f, 1f);
-        public static readonly Color PanelLightColor = new Color(0.11f, 0.129f, 0.157f, 1f);
-        public static readonly Color ButtonColor = new Color(0.129f, 0.157f, 0.188f, 1f);
-        public static readonly Color ButtonHoverColor = new Color(0.18f, 0.212f, 0.251f, 1f);
-        public static readonly Color ButtonActiveColor = new Color(0.22f, 0.545f, 0.992f, 1f);
-        public static readonly Color TextColor = new Color(0.902f, 0.929f, 0.953f, 1f);
-        public static readonly Color TextMutedColor = new Color(0.49f, 0.522f, 0.565f, 1f);
-        public static readonly Color SuccessColor = new Color(0.247f, 0.725f, 0.314f, 1f);
-        public static readonly Color WarningColor = new Color(0.824f, 0.6f, 0.133f, 1f);
-        public static readonly Color ErrorColor = new Color(0.973f, 0.318f, 0.286f, 1f);
-        public static readonly Color BorderColor = new Color(0.188f, 0.212f, 0.239f, 1f);
-        public static readonly Color BorderLightColor = new Color(0.282f, 0.31f, 0.345f, 1f);
+        // Colors - SewerMenu 2.0 beta theme
+        public static readonly Color AccentColor = new Color(0.55f, 0.84f, 0.20f, 1f);
+        public static readonly Color AccentDark = new Color(0.27f, 0.52f, 0.13f, 1f);
+        public static readonly Color AccentGlow = new Color(0.72f, 1.0f, 0.34f, 1f);
+        public static readonly Color BackgroundColor = new Color(0.025f, 0.033f, 0.031f, 0.985f);
+        public static readonly Color PanelColor = new Color(0.055f, 0.068f, 0.064f, 0.96f);
+        public static readonly Color PanelLightColor = new Color(0.085f, 0.102f, 0.096f, 0.96f);
+        public static readonly Color ButtonColor = new Color(0.09f, 0.108f, 0.104f, 0.95f);
+        public static readonly Color ButtonHoverColor = new Color(0.13f, 0.16f, 0.145f, 0.98f);
+        public static readonly Color ButtonActiveColor = new Color(0.31f, 0.59f, 0.16f, 1f);
+        public static readonly Color TextColor = new Color(0.93f, 0.95f, 0.92f, 1f);
+        public static readonly Color TextMutedColor = new Color(0.57f, 0.62f, 0.57f, 1f);
+        public static readonly Color SuccessColor = new Color(0.50f, 0.84f, 0.22f, 1f);
+        public static readonly Color WarningColor = new Color(0.86f, 0.65f, 0.18f, 1f);
+        public static readonly Color ErrorColor = new Color(0.95f, 0.28f, 0.25f, 1f);
+        public static readonly Color BorderColor = new Color(0.16f, 0.22f, 0.18f, 1f);
+        public static readonly Color BorderLightColor = new Color(0.36f, 0.58f, 0.22f, 1f);
         
         private static GUIStyle _headerStyle;
         private static GUIStyle _sectionStyle;
@@ -84,15 +90,15 @@ namespace SewerMenu.UI
         {
             _solidWhite = MakeTexture(2, 2, Color.white);
             _windowBackground = MakeTexture(2, 2, BackgroundColor);
-            _buttonNormal = MakeRoundedTexture(64, 28, ButtonColor, new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.5f));
-            _buttonHover = MakeRoundedTexture(64, 28, ButtonHoverColor, BorderLightColor);
-            _buttonActive = MakeRoundedTexture(64, 28, ButtonActiveColor, AccentColor);
-            _boxBackground = MakeRoundedTexture(64, 64, PanelColor, new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.4f));
+            _buttonNormal = MakeTexture(2, 2, ButtonColor);
+            _buttonHover = MakeTexture(2, 2, ButtonHoverColor);
+            _buttonActive = MakeTexture(2, 2, ButtonActiveColor);
+            _boxBackground = MakeTexture(2, 2, PanelColor);
             _toggleOn = MakeToggleTexture(20, 20, true);
             _toggleOff = MakeToggleTexture(20, 20, false);
             _sliderBackground = MakeTexture(8, 8, new Color(0.1f, 0.12f, 0.15f, 1f));
-            _sliderThumb = MakeRoundedTexture(16, 22, AccentColor, AccentDark);
-            _textFieldBackground = MakeRoundedTexture(64, 26, new Color(0.04f, 0.05f, 0.065f, 1f), BorderColor);
+            _sliderThumb = MakeTexture(2, 2, AccentColor);
+            _textFieldBackground = MakeTexture(2, 2, new Color(0.04f, 0.05f, 0.065f, 1f));
             _gradientHeader = MakeGradientTexture(1, 32, 
                 new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.15f),
                 new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.0f));
@@ -145,7 +151,7 @@ namespace SewerMenu.UI
             var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
             texture.hideFlags = HideFlags.HideAndDontSave;
             
-            int radius = 3;
+            int radius = Mathf.Min(8, Mathf.Max(3, Mathf.Min(width, height) / 3));
             var pixels = new Color[width * height];
             
             for (int y = 0; y < height; y++)
@@ -176,6 +182,86 @@ namespace SewerMenu.UI
             
             texture.SetPixels(pixels);
             texture.Apply();
+            return texture;
+        }
+
+        private static string ColorKey(Color color)
+        {
+            int r = Mathf.RoundToInt(Mathf.Clamp01(color.r) * 31f);
+            int g = Mathf.RoundToInt(Mathf.Clamp01(color.g) * 31f);
+            int b = Mathf.RoundToInt(Mathf.Clamp01(color.b) * 31f);
+            int a = Mathf.RoundToInt(Mathf.Clamp01(color.a) * 31f);
+            return r + "," + g + "," + b + "," + a;
+        }
+
+        private static Texture2D GetRoundedTexture(int width, int height, int radius, Color fillColor, Color borderColor, int borderWidth)
+        {
+            width = Mathf.Clamp(width, 1, 2048);
+            height = Mathf.Clamp(height, 1, 2048);
+            radius = Mathf.Clamp(radius, 0, Mathf.Min(width, height) / 2);
+            borderWidth = Mathf.Clamp(borderWidth, 0, radius);
+
+            string key = width + "x" + height + "r" + radius + "b" + borderWidth + "|" + ColorKey(fillColor) + "|" + ColorKey(borderColor);
+            if (_roundedTextureCache.TryGetValue(key, out var cached) && cached != null)
+            {
+                return cached;
+            }
+
+            if (_roundedTextureCache.Count > 700)
+            {
+                _roundedTextureCache.Clear();
+            }
+
+            var texture = new Texture2D(width, height, TextureFormat.RGBA32, false);
+            texture.hideFlags = HideFlags.HideAndDontSave;
+            texture.wrapMode = TextureWrapMode.Clamp;
+            texture.filterMode = FilterMode.Bilinear;
+
+            var pixels = new Color[width * height];
+            float r = radius;
+            float bw = borderWidth;
+
+            for (int y = 0; y < height; y++)
+            {
+                for (int x = 0; x < width; x++)
+                {
+                    Color color;
+                    if (radius <= 0)
+                    {
+                        bool isBorder = borderWidth > 0 && (x < borderWidth || x >= width - borderWidth || y < borderWidth || y >= height - borderWidth);
+                        color = isBorder ? borderColor : fillColor;
+                    }
+                    else
+                    {
+                        float px = x + 0.5f;
+                        float py = y + 0.5f;
+                        float cx = Mathf.Clamp(px, r, width - r);
+                        float cy = Mathf.Clamp(py, r, height - r);
+                        float dx = px - cx;
+                        float dy = py - cy;
+                        float dist = Mathf.Sqrt(dx * dx + dy * dy);
+                        float edge = r - dist;
+                        float alpha = Mathf.Clamp01(edge + 0.85f);
+
+                        if (alpha <= 0f)
+                        {
+                            color = Color.clear;
+                        }
+                        else
+                        {
+                            bool isBorder = bw > 0f && edge <= bw;
+                            color = isBorder ? borderColor : fillColor;
+                            color.a *= alpha;
+                        }
+                    }
+
+                    pixels[y * width + x] = color;
+                }
+            }
+
+            texture.SetPixels(pixels);
+            texture.Apply();
+            _roundedTextureCache[key] = texture;
             return texture;
         }
         
@@ -334,12 +420,37 @@ namespace SewerMenu.UI
             if (!_initialized) Initialize();
             if (!_stylesInitialized) CreateStyles();
             
+            _previousSkin = GUI.skin;
+            if (_customSkin != null)
+            {
+                GUI.skin = _customSkin;
+            }
+
             GUI.backgroundColor = Color.white;
             GUI.contentColor = TextColor;
         }
         
         private static void CreateStyles()
         {
+            _customSkin = UnityEngine.Object.Instantiate(GUI.skin);
+            _customSkin.hideFlags = HideFlags.HideAndDontSave;
+            _customSkin.window.normal.background = _windowBackground;
+            _customSkin.window.normal.textColor = TextColor;
+            _customSkin.window.border = new RectOffset(8, 8, 8, 8);
+            _customSkin.window.padding = new RectOffset(10, 10, 8, 10);
+            _customSkin.box.normal.background = _boxBackground;
+            _customSkin.box.normal.textColor = TextColor;
+            _customSkin.button.normal.background = _buttonNormal;
+            _customSkin.button.hover.background = _buttonHover;
+            _customSkin.button.active.background = _buttonActive;
+            _customSkin.button.normal.textColor = TextColor;
+            _customSkin.button.hover.textColor = TextColor;
+            _customSkin.button.active.textColor = new Color(0.02f, 0.04f, 0.03f, 1f);
+            _customSkin.label.normal.textColor = TextColor;
+            _customSkin.verticalScrollbar.fixedWidth = 12f;
+            _customSkin.verticalScrollbarThumb.normal.background = MakeTexture(2, 2, new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.62f));
+            _customSkin.verticalScrollbarThumb.hover.background = MakeTexture(2, 2, AccentColor);
+
             _buttonStyle = new GUIStyle(GUI.skin.button)
             {
                 fontSize = 12,
@@ -360,21 +471,21 @@ namespace SewerMenu.UI
             _buttonAccentStyle = new GUIStyle(_buttonStyle);
             _buttonAccentStyle.normal.background = _buttonActive;
             _buttonAccentStyle.normal.textColor = new Color(0.02f, 0.04f, 0.06f, 1f);
-            _buttonAccentStyle.hover.background = MakeRoundedTexture(64, 28, AccentGlow, AccentColor);
+            _buttonAccentStyle.hover.background = MakeTexture(2, 2, AccentGlow);
             _buttonAccentStyle.hover.background.hideFlags = HideFlags.HideAndDontSave;
             _buttonAccentStyle.hover.textColor = new Color(0.02f, 0.04f, 0.06f, 1f);
-            _buttonAccentStyle.active.background = MakeRoundedTexture(64, 28, AccentDark, AccentColor);
+            _buttonAccentStyle.active.background = MakeTexture(2, 2, AccentDark);
             _buttonAccentStyle.active.background.hideFlags = HideFlags.HideAndDontSave;
             _buttonAccentStyle.active.textColor = TextColor;
             
             _buttonDangerStyle = new GUIStyle(_buttonStyle);
-            _buttonDangerStyle.normal.background = MakeRoundedTexture(64, 28, new Color(ErrorColor.r * 0.8f, ErrorColor.g * 0.8f, ErrorColor.b * 0.8f, 1f), ErrorColor);
+            _buttonDangerStyle.normal.background = MakeTexture(2, 2, new Color(ErrorColor.r * 0.8f, ErrorColor.g * 0.8f, ErrorColor.b * 0.8f, 1f));
             _buttonDangerStyle.normal.background.hideFlags = HideFlags.HideAndDontSave;
             _buttonDangerStyle.normal.textColor = TextColor;
-            _buttonDangerStyle.hover.background = MakeRoundedTexture(64, 28, ErrorColor, new Color(1f, 0.4f, 0.4f, 1f));
+            _buttonDangerStyle.hover.background = MakeTexture(2, 2, ErrorColor);
             _buttonDangerStyle.hover.background.hideFlags = HideFlags.HideAndDontSave;
             _buttonDangerStyle.hover.textColor = TextColor;
-            _buttonDangerStyle.active.background = MakeRoundedTexture(64, 28, new Color(ErrorColor.r * 0.6f, ErrorColor.g * 0.6f, ErrorColor.b * 0.6f, 1f), ErrorColor);
+            _buttonDangerStyle.active.background = MakeTexture(2, 2, new Color(ErrorColor.r * 0.6f, ErrorColor.g * 0.6f, ErrorColor.b * 0.6f, 1f));
             _buttonDangerStyle.active.background.hideFlags = HideFlags.HideAndDontSave;
             _buttonDangerStyle.active.textColor = TextColor;
             
@@ -383,144 +494,240 @@ namespace SewerMenu.UI
         
         public static void EndUI()
         {
+            if (_previousSkin != null)
+            {
+                GUI.skin = _previousSkin;
+                _previousSkin = null;
+            }
+
             GUI.backgroundColor = Color.white;
             GUI.contentColor = Color.white;
+        }
+
+        public static void ResetTransientAnimations()
+        {
+            _sectionAnimations.Clear();
         }
         
         #endregion
         
         #region Custom Drawing Methods
+
+        public static Texture2D WhiteTexture
+        {
+            get
+            {
+                if (!_initialized) Initialize();
+                return _solidWhite ?? Texture2D.whiteTexture;
+            }
+        }
+
+        public static void DrawSolid(Rect rect, Color color)
+        {
+            var oldColor = GUI.color;
+            GUI.color = color;
+            GUI.DrawTexture(rect, WhiteTexture);
+            GUI.color = oldColor;
+        }
+
+        public static void DrawRoundedRect(Rect rect, Color fillColor, Color borderColor, int radius = 7, int borderWidth = 1)
+        {
+            if (!_initialized) Initialize();
+            int width = Mathf.Max(1, Mathf.RoundToInt(rect.width));
+            int height = Mathf.Max(1, Mathf.RoundToInt(rect.height));
+            var texture = GetRoundedTexture(width, height, radius, fillColor, borderColor, borderWidth);
+
+            var oldColor = GUI.color;
+            GUI.color = Color.white;
+            GUI.DrawTexture(rect, texture, ScaleMode.StretchToFill, true);
+            GUI.color = oldColor;
+        }
+
+        public static void DrawSoftGlow(Rect rect, Color color, float alpha = 0.22f, int radius = 8)
+        {
+            DrawRoundedRect(new Rect(rect.x - 3f, rect.y - 3f, rect.width + 6f, rect.height + 6f), new Color(color.r, color.g, color.b, alpha * 0.25f), Color.clear, radius + 3, 0);
+            DrawRoundedRect(new Rect(rect.x - 1f, rect.y - 1f, rect.width + 2f, rect.height + 2f), new Color(color.r, color.g, color.b, alpha * 0.45f), Color.clear, radius + 1, 0);
+        }
+
+        public static bool DrawButtonRect(Rect rect, string text, Color baseColor, Color hoverColor, Color textColor, int radius = 7, bool selected = false, int fontSize = 11)
+        {
+            bool hovered = rect.Contains(Event.current.mousePosition);
+            string key = "button:" + text + ":" + Mathf.RoundToInt(rect.x) + ":" + Mathf.RoundToInt(rect.y) + ":" + Mathf.RoundToInt(rect.width) + ":" + Mathf.RoundToInt(rect.height);
+            if (!_hoverAnimations.TryGetValue(key, out float hoverAnim))
+            {
+                hoverAnim = hovered ? 1f : 0f;
+            }
+
+            if (Event.current.type == EventType.Repaint)
+            {
+                hoverAnim = Mathf.MoveTowards(hoverAnim, hovered ? 1f : 0f, Time.unscaledDeltaTime * 10f);
+                _hoverAnimations[key] = hoverAnim;
+            }
+
+            Color fill = selected ? hoverColor : Color.Lerp(baseColor, hoverColor, hoverAnim);
+            Color border = selected
+                ? new Color(AccentGlow.r, AccentGlow.g, AccentGlow.b, 0.92f)
+                : Color.Lerp(new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.65f), new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.7f), hoverAnim);
+
+            if (hoverAnim > 0.01f || selected)
+            {
+                DrawSoftGlow(rect, selected ? AccentColor : hoverColor, selected ? 0.18f : 0.10f, radius);
+            }
+
+            DrawRoundedRect(rect, fill, border, radius, 1);
+            DrawRoundedRect(new Rect(rect.x + 1f, rect.y + 1f, rect.width - 2f, Mathf.Min(8f, rect.height * 0.35f)), new Color(1f, 1f, 1f, 0.045f + 0.035f * hoverAnim), Color.clear, Mathf.Max(2, radius - 1), 0);
+
+            var oldContentColor = GUI.contentColor;
+            GUI.contentColor = textColor;
+            var style = new GUIStyle(GUI.skin.label)
+            {
+                alignment = TextAnchor.MiddleCenter,
+                fontSize = fontSize,
+                fontStyle = selected ? FontStyle.Bold : FontStyle.Normal
+            };
+            GUI.Label(rect, text, style);
+            GUI.contentColor = oldContentColor;
+
+            return GUI.Button(rect, "", GUIStyle.none);
+        }
+
+        public static void DrawWindowPanel(Rect rect)
+        {
+            if (!_initialized) Initialize();
+
+            float pulse = 0.5f + Mathf.Sin(Time.unscaledTime * 2.2f) * 0.5f;
+            DrawRoundedRect(new Rect(rect.x + 8f, rect.y + 10f, rect.width, rect.height), new Color(0f, 0f, 0f, 0.34f), Color.clear, 8, 0);
+            DrawSoftGlow(rect, AccentColor, 0.12f + 0.04f * pulse, 8);
+            DrawRoundedRect(rect, BackgroundColor, new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.38f), 8, 1);
+            DrawRoundedRect(new Rect(rect.x + 1f, rect.y + 1f, rect.width - 2f, 46f), new Color(1f, 1f, 1f, 0.035f), Color.clear, 7, 0);
+            DrawSolid(new Rect(rect.x + 18f, rect.y + 1f, rect.width - 36f, 1f), new Color(AccentGlow.r, AccentGlow.g, AccentGlow.b, 0.34f + 0.10f * pulse));
+        }
         
         public static void DrawHeader(string text)
         {
-            var oldColor = GUI.contentColor;
-            GUI.contentColor = AccentColor;
-            GUILayout.Label(text);
-            GUI.contentColor = oldColor;
-            GUILayout.Space(5);
+            Rect rect = GUILayoutUtility.GetRect(0, 40, GUILayout.ExpandWidth(true));
+            Rect panelRect = new Rect(rect.x + 2f, rect.y + 2f, rect.width - 4f, rect.height - 7f);
+            DrawRoundedRect(panelRect, new Color(0.038f, 0.052f, 0.046f, 0.82f), new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.55f), 6, 1);
+            DrawSolid(new Rect(panelRect.x + 12f, panelRect.y + panelRect.height - 2f, 78f, 2f), AccentColor);
+
+            var oldContentColor = GUI.contentColor;
+            GUI.contentColor = TextColor;
+            var style = new GUIStyle(GUI.skin.label) { fontSize = 13, fontStyle = FontStyle.Bold, clipping = TextClipping.Clip };
+            GUI.Label(new Rect(panelRect.x + 12, panelRect.y + 4, panelRect.width - 24, 24), text, style);
+            GUI.contentColor = oldContentColor;
+
+            GUILayout.Space(8);
         }
         
         public static void DrawSection(string title)
         {
-            GUILayout.Space(14);
-            
-            Rect headerRect = GUILayoutUtility.GetRect(0, 26, GUILayout.ExpandWidth(true));
-            
-            if (_gradientHeader != null)
-            {
-                GUI.DrawTexture(headerRect, _gradientHeader, ScaleMode.StretchToFill);
-            }
-            
-            var oldColor = GUI.color;
-            GUI.color = AccentColor;
-            GUI.DrawTexture(new Rect(headerRect.x, headerRect.y + 3, 3, headerRect.height - 6), _solidWhite ?? Texture2D.whiteTexture);
-            GUI.color = oldColor;
-            
-            oldColor = GUI.contentColor;
-            GUI.contentColor = TextColor;
-            Rect labelRect = new Rect(headerRect.x + 12, headerRect.y + 3, headerRect.width - 12, headerRect.height - 6);
-            GUI.Label(labelRect, title.ToUpper());
-            GUI.contentColor = oldColor;
-            
-            GUI.color = new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.6f);
-            GUI.DrawTexture(new Rect(headerRect.x, headerRect.y + headerRect.height - 1, headerRect.width, 1), _solidWhite ?? Texture2D.whiteTexture);
-            GUI.color = Color.white;
-            
             GUILayout.Space(10);
+            
+            Rect headerRect = GUILayoutUtility.GetRect(0, 36, GUILayout.ExpandWidth(true));
+            string key = "section:" + title;
+            if (!_sectionAnimations.TryGetValue(key, out float anim))
+            {
+                anim = 0f;
+            }
+
+            if (Event.current.type == EventType.Repaint)
+            {
+                anim = Mathf.MoveTowards(anim, 1f, Time.unscaledDeltaTime * 7.5f);
+                _sectionAnimations[key] = anim;
+            }
+
+            float eased = 1f - Mathf.Pow(1f - anim, 3f);
+            Rect bandRect = new Rect(headerRect.x + 4f + (1f - eased) * 10f, headerRect.y + 3f, headerRect.width - 8f - (1f - eased) * 10f, headerRect.height - 8f);
+            DrawRoundedRect(bandRect, new Color(0.06f, 0.083f, 0.067f, 0.70f + 0.16f * eased), new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.25f + 0.20f * eased), 5, 1);
+            DrawSolid(new Rect(bandRect.x + 8, bandRect.y + 6, 3, bandRect.height - 12), new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.35f + 0.65f * eased));
+            DrawSolid(new Rect(bandRect.x + 18, bandRect.y + bandRect.height - 2, 68 * eased, 2), new Color(AccentGlow.r, AccentGlow.g, AccentGlow.b, 0.55f * eased));
+            
+            var oldColor = GUI.contentColor;
+            GUI.contentColor = new Color(AccentGlow.r, AccentGlow.g, AccentGlow.b, AccentGlow.a * Mathf.Lerp(0.55f, 1f, eased));
+            Rect labelRect = new Rect(bandRect.x + 20, bandRect.y + 4, bandRect.width - 28, bandRect.height - 5);
+            var sectionStyle = new GUIStyle(GUI.skin.label) { fontSize = 12, fontStyle = FontStyle.Bold, clipping = TextClipping.Clip };
+            GUI.Label(labelRect, title.ToUpper(), sectionStyle);
+            GUI.contentColor = oldColor;
+
+            GUILayout.Space(6);
         }
         
         public static bool DrawToggle(string label, bool value, string description = null)
         {
-            Rect rowRect = GUILayoutUtility.GetRect(0, 32, GUILayout.ExpandWidth(true));
-            
-            var oldColor = GUI.color;
-            if (value)
+            float rowHeight = string.IsNullOrEmpty(description) ? 42f : 58f;
+            Rect rowRect = GUILayoutUtility.GetRect(0, rowHeight, GUILayout.ExpandWidth(true));
+            rowRect = new Rect(rowRect.x + 4f, rowRect.y + 2f, rowRect.width - 8f, rowRect.height - 4f);
+
+            string key = label + "|" + (description ?? "");
+            if (!_toggleAnimations.TryGetValue(key, out float anim))
             {
-                GUI.color = new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.04f);
-                GUI.DrawTexture(new Rect(rowRect.x, rowRect.y + 1, rowRect.width, rowRect.height - 2), _solidWhite ?? Texture2D.whiteTexture);
-                
-                GUI.color = AccentColor;
-                GUI.DrawTexture(new Rect(rowRect.x, rowRect.y + 4, 3, rowRect.height - 8), _solidWhite ?? Texture2D.whiteTexture);
+                anim = value ? 1f : 0f;
             }
-            GUI.color = oldColor;
-            
-            const float toggleWidth = 44f;
-            const float toggleHeight = 22f;
+
+            if (Event.current.type == EventType.Repaint)
+            {
+                anim = Mathf.MoveTowards(anim, value ? 1f : 0f, Time.unscaledDeltaTime * 9f);
+                _toggleAnimations[key] = anim;
+            }
+
+            float eased = 1f - Mathf.Pow(1f - anim, 3f);
+            bool hovered = rowRect.Contains(Event.current.mousePosition);
+            bool newValue = value;
+            if (GUI.Button(rowRect, "", GUIStyle.none))
+            {
+                newValue = !value;
+            }
+
+            Color rowColor = hovered
+                ? new Color(0.105f, 0.132f, 0.118f, 0.96f)
+                : new Color(0.066f, 0.081f, 0.076f, 0.94f);
+            DrawRoundedRect(rowRect, rowColor, new Color(BorderColor.r, BorderColor.g, BorderColor.b, hovered ? 0.72f : 0.45f), 7, 1);
+            DrawRoundedRect(new Rect(rowRect.x + 1f, rowRect.y + 1f, rowRect.width - 2f, Mathf.Min(10f, rowRect.height * 0.28f)), new Color(1f, 1f, 1f, hovered ? 0.045f : 0.025f), Color.clear, 6, 0);
+
+            if (anim > 0.01f)
+            {
+                DrawRoundedRect(rowRect, new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.035f + 0.065f * anim), Color.clear, 7, 0);
+                DrawRoundedRect(new Rect(rowRect.x + 6f, rowRect.y + 8f, 4f, rowRect.height - 16f), new Color(AccentColor.r, AccentColor.g, AccentColor.b, 0.55f + 0.35f * anim), Color.clear, 3, 0);
+            }
+
+            const float toggleWidth = 48f;
+            const float toggleHeight = 24f;
             const float knobSize = 18f;
-            const float knobPadding = 2f;
-            
-            Rect toggleRect = new Rect(rowRect.x + 12, rowRect.y + (rowRect.height - toggleHeight) / 2f, toggleWidth, toggleHeight);
-            
-            // GUIStyle.none hides the default checkbox visual
-            bool newValue = GUI.Toggle(new Rect(toggleRect.x - 2, toggleRect.y - 2, toggleWidth + 4, toggleHeight + 4), value, "", GUIStyle.none);
-            
-            oldColor = GUI.color;
-            GUI.color = Color.white;
-            if (value)
+            const float knobPadding = 3f;
+            Rect toggleRect = new Rect(rowRect.x + rowRect.width - toggleWidth - 12f, rowRect.y + (rowRect.height - toggleHeight) / 2f, toggleWidth, toggleHeight);
+
+            Color switchFill = Color.Lerp(new Color(0.14f, 0.16f, 0.19f, 1f), AccentColor, eased);
+            Color switchBorder = Color.Lerp(new Color(0.27f, 0.30f, 0.34f, 1f), AccentDark, eased);
+            if (anim > 0.01f)
             {
-                if (_togglePillOn != null)
-                    GUI.DrawTexture(toggleRect, _togglePillOn, ScaleMode.StretchToFill);
-                else
-                {
-                    GUI.color = AccentColor;
-                    GUI.DrawTexture(toggleRect, _solidWhite ?? Texture2D.whiteTexture);
-                }
+                DrawSoftGlow(toggleRect, AccentColor, 0.22f * anim, 12);
             }
-            else
-            {
-                if (_togglePillOff != null)
-                    GUI.DrawTexture(toggleRect, _togglePillOff, ScaleMode.StretchToFill);
-                else
-                {
-                    GUI.color = new Color(0.15f, 0.17f, 0.2f, 1f);
-                    GUI.DrawTexture(toggleRect, _solidWhite ?? Texture2D.whiteTexture);
-                }
-            }
-            
-            float knobX = value 
-                ? toggleRect.x + toggleWidth - knobSize - knobPadding
-                : toggleRect.x + knobPadding;
-            float knobY = toggleRect.y + (toggleHeight - knobSize) / 2f;
-            
-            Rect knobRect = new Rect(knobX, knobY, knobSize, knobSize);
-            GUI.color = Color.white;
-            if (_toggleKnob != null)
-            {
-                GUI.DrawTexture(knobRect, _toggleKnob, ScaleMode.StretchToFill);
-            }
-            else
-            {
-                GUI.DrawTexture(knobRect, _solidWhite ?? Texture2D.whiteTexture);
-            }
+            DrawRoundedRect(toggleRect, switchFill, switchBorder, 12, 1);
+            DrawRoundedRect(new Rect(toggleRect.x + 3f, toggleRect.y + 3f, toggleRect.width - 6f, 5f), new Color(1f, 1f, 1f, 0.12f), Color.clear, 5, 0);
+
+            float knobX = Mathf.Lerp(toggleRect.x + knobPadding, toggleRect.x + toggleWidth - knobSize - knobPadding, eased);
+            Rect knobShadow = new Rect(knobX + 1f, toggleRect.y + 4f, knobSize, knobSize);
+            Rect knobRect = new Rect(knobX, toggleRect.y + 3f, knobSize, knobSize);
+            var oldColor = GUI.color;
+            GUI.color = new Color(0f, 0f, 0f, 0.28f);
+            GUI.DrawTexture(knobShadow, _toggleKnob ?? WhiteTexture, ScaleMode.StretchToFill);
+            GUI.color = Color.Lerp(new Color(0.84f, 0.87f, 0.86f, 1f), Color.white, eased);
+            GUI.DrawTexture(knobRect, _toggleKnob ?? WhiteTexture, ScaleMode.StretchToFill);
             GUI.color = oldColor;
-            
-            // Label - positioned after toggle
-            float labelX = toggleRect.x + toggleWidth + 12f;
+
             var oldContentColor = GUI.contentColor;
-            GUI.contentColor = value ? TextColor : TextMutedColor;
-            Rect labelRect = new Rect(labelX, rowRect.y + 6, rowRect.width - labelX - 60, 20);
-            GUI.Label(labelRect, label);
-            GUI.contentColor = oldContentColor;
-            
-            // Status text on right (smaller, subtle)
-            Rect statusRect = new Rect(rowRect.x + rowRect.width - 40, rowRect.y + 7, 32, 18);
-            oldContentColor = GUI.contentColor;
-            GUI.contentColor = value ? SuccessColor : new Color(TextMutedColor.r, TextMutedColor.g, TextMutedColor.b, 0.6f);
-            var statusStyle = new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleRight, fontSize = 10 };
-            GUI.Label(statusRect, value ? "ON" : "OFF", statusStyle);
-            GUI.contentColor = oldContentColor;
-            
-            // Description on next line if provided
+            GUI.contentColor = Color.Lerp(TextMutedColor, TextColor, Mathf.Max(anim, hovered ? 0.45f : 0f));
+            var labelStyle = new GUIStyle(GUI.skin.label) { fontSize = 12, fontStyle = value ? FontStyle.Bold : FontStyle.Normal, clipping = TextClipping.Clip };
+            GUI.Label(new Rect(rowRect.x + 14f, rowRect.y + 8f, rowRect.width - 84f, 22f), label, labelStyle);
+
             if (!string.IsNullOrEmpty(description))
             {
-                Rect descRect = GUILayoutUtility.GetRect(0, 16, GUILayout.ExpandWidth(true));
-                oldContentColor = GUI.contentColor;
-                GUI.contentColor = new Color(TextMutedColor.r, TextMutedColor.g, TextMutedColor.b, 0.7f);
-                var descStyle = new GUIStyle(GUI.skin.label) { fontSize = 11 };
-                GUI.Label(new Rect(labelX, descRect.y - 4, descRect.width - labelX - 10, 16), description, descStyle);
-                GUI.contentColor = oldContentColor;
+                GUI.contentColor = new Color(TextMutedColor.r, TextMutedColor.g, TextMutedColor.b, hovered ? 0.9f : 0.68f);
+                var descStyle = new GUIStyle(GUI.skin.label) { fontSize = 10, clipping = TextClipping.Clip };
+                GUI.Label(new Rect(rowRect.x + 14f, rowRect.y + 31f, rowRect.width - 86f, 18f), description, descStyle);
             }
-            
+
+            GUI.contentColor = oldContentColor;
             return newValue;
         }
         
@@ -541,14 +748,7 @@ namespace SewerMenu.UI
             
             // Value display box with rounded appearance
             Rect valueRect = new Rect(xPos, rowRect.y + 2, 50, 24);
-            var oldColor = GUI.color;
-            GUI.color = new Color(0.06f, 0.08f, 0.1f, 1f);
-            GUI.DrawTexture(valueRect, _solidWhite ?? Texture2D.whiteTexture);
-            // Subtle border
-            GUI.color = new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.4f);
-            GUI.DrawTexture(new Rect(valueRect.x, valueRect.y, valueRect.width, 1), _solidWhite ?? Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(valueRect.x, valueRect.y + valueRect.height - 1, valueRect.width, 1), _solidWhite ?? Texture2D.whiteTexture);
-            GUI.color = oldColor;
+            DrawRoundedRect(valueRect, new Color(0.045f, 0.058f, 0.052f, 0.96f), new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.55f), 6, 1);
             
             // Value text
             oldContentColor = GUI.contentColor;
@@ -565,9 +765,8 @@ namespace SewerMenu.UI
             Rect trackRect = new Rect(xPos, trackY, trackWidth, trackHeight);
             
             // Draw background track (dark)
-            oldColor = GUI.color;
-            GUI.color = new Color(0.1f, 0.12f, 0.15f, 1f);
-            GUI.DrawTexture(trackRect, _solidWhite ?? Texture2D.whiteTexture);
+            var oldColor = GUI.color;
+            DrawRoundedRect(trackRect, new Color(0.085f, 0.098f, 0.095f, 1f), new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.55f), 3, 1);
             
             // Calculate fill percentage
             float percent = Mathf.Clamp01((value - min) / (max - min));
@@ -577,14 +776,8 @@ namespace SewerMenu.UI
             {
                 float fillWidth = (trackWidth - 2) * percent;
                 Rect fillRect = new Rect(trackRect.x + 1, trackRect.y + 1, fillWidth, trackHeight - 2);
-                GUI.color = AccentColor;
-                GUI.DrawTexture(fillRect, _solidWhite ?? Texture2D.whiteTexture);
-                
-                // Subtle highlight on top of fill
-                GUI.color = new Color(1f, 1f, 1f, 0.2f);
-                GUI.DrawTexture(new Rect(fillRect.x, fillRect.y, fillRect.width, 2), _solidWhite ?? Texture2D.whiteTexture);
+                DrawRoundedRect(fillRect, AccentColor, Color.clear, 3, 0);
             }
-            GUI.color = oldColor;
             
             // Draw knob/thumb
             float knobSize = 14f;
@@ -618,13 +811,11 @@ namespace SewerMenu.UI
         {
             if (!_stylesInitialized) CreateStyles();
             
-            bool clicked;
-            if (width > 0)
-                clicked = GUILayout.Button(text, _buttonStyle, GUILayout.Width(width), GUILayout.Height(28));
-            else
-                clicked = GUILayout.Button(text, _buttonStyle, GUILayout.Height(28));
-            
-            return clicked;
+            Rect rect = width > 0
+                ? GUILayoutUtility.GetRect(width, 30, GUILayout.Width(width), GUILayout.Height(30))
+                : GUILayoutUtility.GetRect(0, 30, GUILayout.ExpandWidth(true), GUILayout.Height(30));
+
+            return DrawButtonRect(rect, text, ButtonColor, ButtonHoverColor, TextColor, 7, false, 11);
         }
         
         /// <summary>
@@ -634,13 +825,11 @@ namespace SewerMenu.UI
         {
             if (!_stylesInitialized) CreateStyles();
             
-            bool clicked;
-            if (width > 0)
-                clicked = GUILayout.Button(text, _buttonAccentStyle, GUILayout.Width(width), GUILayout.Height(30));
-            else
-                clicked = GUILayout.Button(text, _buttonAccentStyle, GUILayout.Height(30));
-            
-            return clicked;
+            Rect rect = width > 0
+                ? GUILayoutUtility.GetRect(width, 32, GUILayout.Width(width), GUILayout.Height(32))
+                : GUILayoutUtility.GetRect(0, 32, GUILayout.ExpandWidth(true), GUILayout.Height(32));
+
+            return DrawButtonRect(rect, text, ButtonActiveColor, AccentGlow, new Color(0.02f, 0.04f, 0.03f, 1f), 7, false, 11);
         }
         
         /// <summary>
@@ -650,13 +839,11 @@ namespace SewerMenu.UI
         {
             if (!_stylesInitialized) CreateStyles();
             
-            bool clicked;
-            if (width > 0)
-                clicked = GUILayout.Button(text, _buttonDangerStyle, GUILayout.Width(width), GUILayout.Height(28));
-            else
-                clicked = GUILayout.Button(text, _buttonDangerStyle, GUILayout.Height(28));
-            
-            return clicked;
+            Rect rect = width > 0
+                ? GUILayoutUtility.GetRect(width, 30, GUILayout.Width(width), GUILayout.Height(30))
+                : GUILayoutUtility.GetRect(0, 30, GUILayout.ExpandWidth(true), GUILayout.Height(30));
+
+            return DrawButtonRect(rect, text, new Color(ErrorColor.r * 0.7f, ErrorColor.g * 0.7f, ErrorColor.b * 0.7f, 1f), ErrorColor, TextColor, 7, false, 11);
         }
         
         /// <summary>
@@ -683,12 +870,9 @@ namespace SewerMenu.UI
         public static void DrawInfoBadge(string label, string value)
         {
             Rect rect = GUILayoutUtility.GetRect(0, 26, GUILayout.ExpandWidth(true));
+            Rect badgeRect = new Rect(rect.x + 4, rect.y + 2, rect.width - 8, rect.height - 4);
             
-            // Background
-            var oldColor = GUI.color;
-            GUI.color = new Color(0.08f, 0.1f, 0.12f, 0.8f);
-            GUI.DrawTexture(new Rect(rect.x + 4, rect.y + 2, rect.width - 8, rect.height - 4), _solidWhite ?? Texture2D.whiteTexture);
-            GUI.color = oldColor;
+            DrawRoundedRect(badgeRect, new Color(0.055f, 0.071f, 0.064f, 0.9f), new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.5f), 6, 1);
             
             // Label
             var oldContentColor = GUI.contentColor;
@@ -790,17 +974,7 @@ namespace SewerMenu.UI
             
             // Value display box
             Rect valueRect = new Rect(xPos, rowRect.y + 2, 85, 28);
-            var oldColor = GUI.color;
-            GUI.color = new Color(0.06f, 0.075f, 0.09f, 1f);
-            GUI.DrawTexture(valueRect, _solidWhite ?? Texture2D.whiteTexture);
-            
-            // Border
-            GUI.color = new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.5f);
-            GUI.DrawTexture(new Rect(valueRect.x, valueRect.y, valueRect.width, 1), _solidWhite ?? Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(valueRect.x, valueRect.y + valueRect.height - 1, valueRect.width, 1), _solidWhite ?? Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(valueRect.x, valueRect.y, 1, valueRect.height), _solidWhite ?? Texture2D.whiteTexture);
-            GUI.DrawTexture(new Rect(valueRect.x + valueRect.width - 1, valueRect.y, 1, valueRect.height), _solidWhite ?? Texture2D.whiteTexture);
-            GUI.color = oldColor;
+            DrawRoundedRect(valueRect, new Color(0.045f, 0.058f, 0.052f, 0.96f), new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.55f), 6, 1);
             
             // Value text
             var oldContentColor2 = GUI.contentColor;
@@ -811,9 +985,9 @@ namespace SewerMenu.UI
             xPos += 90;
             
             // +/- buttons
-            if (GUI.Button(new Rect(xPos, rowRect.y + 2, 28, 28), "-")) result = value - step;
+            if (DrawButtonRect(new Rect(xPos, rowRect.y + 2, 28, 28), "-", ButtonColor, ButtonHoverColor, TextColor, 6, false, 12)) result = value - step;
             xPos += 30;
-            if (GUI.Button(new Rect(xPos, rowRect.y + 2, 28, 28), "+")) result = value + step;
+            if (DrawButtonRect(new Rect(xPos, rowRect.y + 2, 28, 28), "+", ButtonColor, ButtonHoverColor, TextColor, 6, false, 12)) result = value + step;
             xPos += 34;
             
             // Preset buttons
@@ -824,7 +998,7 @@ namespace SewerMenu.UI
                     string presetLabel = preset >= 1000000 ? $"{preset / 1000000f:F0}M" :
                                          preset >= 1000 ? $"{preset / 1000f:F0}K" :
                                          preset.ToString("F0");
-                    if (GUI.Button(new Rect(xPos, rowRect.y + 2, 48, 28), presetLabel)) result = preset;
+                    if (DrawButtonRect(new Rect(xPos, rowRect.y + 2, 48, 28), presetLabel, ButtonColor, ButtonHoverColor, TextColor, 6, false, 10)) result = preset;
                     xPos += 52;
                 }
             }
@@ -892,10 +1066,7 @@ namespace SewerMenu.UI
             
             // Value display box
             Rect valueRect = new Rect(xPos, rowRect.y + 2, 55, 28);
-            var oldColor = GUI.color;
-            GUI.color = new Color(0.06f, 0.075f, 0.09f, 1f);
-            GUI.DrawTexture(valueRect, _solidWhite ?? Texture2D.whiteTexture);
-            GUI.color = oldColor;
+            DrawRoundedRect(valueRect, new Color(0.045f, 0.058f, 0.052f, 0.96f), new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.55f), 6, 1);
             
             // Value text
             var oldContentColor2 = GUI.contentColor;
@@ -910,26 +1081,10 @@ namespace SewerMenu.UI
             {
                 bool isSelected = currentValue == preset;
                 Rect btnRect = new Rect(xPos, rowRect.y + 2, 42, 28);
-                
-                // Selection highlight
-                if (isSelected)
-                {
-                    oldColor = GUI.color;
-                    GUI.color = AccentColor;
-                    GUI.DrawTexture(btnRect, _solidWhite ?? Texture2D.whiteTexture);
-                    GUI.color = oldColor;
-                    
-                    // Dark text on accent
-                    var style = new GUIStyle(GUI.skin.button);
-                    oldContentColor2 = GUI.contentColor;
-                    GUI.contentColor = new Color(0.02f, 0.04f, 0.06f, 1f);
-                    if (GUI.Button(btnRect, preset.ToString(), style)) result = preset;
-                    GUI.contentColor = oldContentColor2;
-                }
-                else
-                {
-                    if (GUI.Button(btnRect, preset.ToString())) result = preset;
-                }
+                Color baseColor = isSelected ? ButtonActiveColor : ButtonColor;
+                Color hoverColor = isSelected ? AccentGlow : ButtonHoverColor;
+                Color textColor = isSelected ? new Color(0.02f, 0.04f, 0.03f, 1f) : TextColor;
+                if (DrawButtonRect(btnRect, preset.ToString(), baseColor, hoverColor, textColor, 6, isSelected, 10)) result = preset;
                 
                 xPos += 46;
             }
@@ -977,37 +1132,20 @@ namespace SewerMenu.UI
             Rect rect = GUILayoutUtility.GetRect(100, 18, GUILayout.ExpandWidth(true));
             
             // Background track (dark, rounded feel)
-            var oldColor = GUI.color;
-            GUI.color = new Color(0.08f, 0.1f, 0.12f, 1f);
-            GUI.DrawTexture(rect, _solidWhite ?? Texture2D.whiteTexture);
-            
-            // Subtle inner shadow at top
-            GUI.color = new Color(0f, 0f, 0f, 0.2f);
-            GUI.DrawTexture(new Rect(rect.x, rect.y, rect.width, 2), _solidWhite ?? Texture2D.whiteTexture);
-            GUI.color = oldColor;
+            DrawRoundedRect(rect, new Color(0.06f, 0.075f, 0.07f, 1f), new Color(BorderColor.r, BorderColor.g, BorderColor.b, 0.55f), 8, 1);
             
             // Fill bar
             if (percent > 0)
             {
                 float fillWidth = (rect.width - 2) * percent;
                 Rect fillRect = new Rect(rect.x + 1, rect.y + 1, fillWidth, rect.height - 2);
-                
-                // Main fill
-                oldColor = GUI.color;
-                GUI.color = AccentColor;
-                GUI.DrawTexture(fillRect, _solidWhite ?? Texture2D.whiteTexture);
-                
-                // Top highlight for depth
-                GUI.color = new Color(1f, 1f, 1f, 0.2f);
-                GUI.DrawTexture(new Rect(fillRect.x, fillRect.y, fillRect.width, 3), _solidWhite ?? Texture2D.whiteTexture);
+                DrawRoundedRect(fillRect, AccentColor, Color.clear, 8, 0);
                 
                 // Subtle glow at the end of fill
                 if (fillWidth > 4)
                 {
-                    GUI.color = new Color(AccentGlow.r, AccentGlow.g, AccentGlow.b, 0.4f);
-                    GUI.DrawTexture(new Rect(fillRect.x + fillRect.width - 3, fillRect.y, 3, fillRect.height), _solidWhite ?? Texture2D.whiteTexture);
+                    DrawRoundedRect(new Rect(fillRect.x + fillRect.width - 4, fillRect.y, 4, fillRect.height), new Color(AccentGlow.r, AccentGlow.g, AccentGlow.b, 0.4f), Color.clear, 4, 0);
                 }
-                GUI.color = oldColor;
             }
             
             // Text overlay

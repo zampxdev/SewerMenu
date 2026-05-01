@@ -24,6 +24,16 @@ A mod menu for **Schedule I** built with MelonLoader.
 - **F8** - Toggle menu
 - **ESC** - Close menu
 
+## Local Verification
+
+After Schedule I updates, launch the game once with MelonLoader installed so `MelonLoader/Il2CppAssemblies` is regenerated. Then run:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File .\verify-game-types.ps1
+```
+
+This builds the mod and verifies the generated IL2CPP types/members used by the menu without entering a save.
+
 ## Requirements
 
 - Schedule I v0.4.2+

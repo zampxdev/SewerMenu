@@ -15,5 +15,8 @@ Thumbs.db
 # Logs
 *.log
 
+# Windows reserved-name placeholder files
+nul
+
 # Archives
 *.zip

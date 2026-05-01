@@ -130,26 +130,8 @@ namespace SewerMenu.UI.Pages
                 
                 GUILayout.Space(8);
                 
-                // SET TIER - button presets
-                var oldColor = GUI.contentColor;
-                GUI.contentColor = SewerSkin.TextMutedColor;
-                GUILayout.Label("Set Tier:");
-                GUI.contentColor = oldColor;
-                
-                GUILayout.BeginHorizontal();
-                if (DrawButton("T1", 35)) xp.SetTier(1);
-                if (DrawButton("T5", 35)) xp.SetTier(5);
-                if (DrawButton("T10", 40)) xp.SetTier(10);
-                if (DrawButton("T20", 40)) xp.SetTier(20);
-                if (DrawButton("T30", 40)) xp.SetTier(30);
-                if (DrawButton("T50", 40)) xp.SetTier(50);
-                if (DrawButton("+1", 35)) xp.IncreaseTier();
-                GUILayout.EndHorizontal();
-                
-                GUILayout.Space(5);
-                
                 // ADD XP
-                oldColor = GUI.contentColor;
+                var oldColor = GUI.contentColor;
                 GUI.contentColor = SewerSkin.TextMutedColor;
                 GUILayout.Label("Add XP:");
                 GUI.contentColor = oldColor;

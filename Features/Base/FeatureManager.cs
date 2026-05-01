@@ -92,6 +92,8 @@ namespace SewerMenu.Features.Base
             RegisterFeature(new Vehicles.VehicleUtilities());
             
             RegisterFeature(new Misc.Freecam());
+            RegisterFeature(new Misc.InfiniteAmmo());
+            RegisterFeature(new Misc.FPSOptimizer());
             RegisterFeature(new Misc.ESP());
             RegisterFeature(new Misc.DebugOverlay());
         }
@@ -214,6 +216,24 @@ namespace SewerMenu.Features.Base
                     catch (Exception ex)
                     {
                         SewerLogger.Error($"Error in {feature.Name}.OnFixedUpdate", ex);
+                    }
+                }
+            }
+        }
+        
+        public void LateUpdate()
+        {
+            foreach (var feature in _features.Values)
+            {
+                if (feature.IsEnabled)
+                {
+                    try
+                    {
+                        feature.OnLateUpdate();
+                    }
+                    catch (Exception ex)
+                    {
+                        SewerLogger.Error($"Error in {feature.Name}.OnLateUpdate", ex);
                     }
                 }
             }
@@ -343,6 +363,16 @@ namespace SewerMenu.Features.Base
             if (feature != null)
             {
                 feature.Hotkey = hotkey;
+                
+                // Persist hotkey to config
+                var configManager = Core.Config.ConfigManager.Instance;
+                if (configManager?.Config != null)
+                {
+                    var featureConfig = configManager.GetFeatureConfig(featureId);
+                    featureConfig.Hotkey = hotkey?.ToString() ?? "";
+                    configManager.QueueSave();
+                }
+                
                 SewerLogger.Debug($"Set hotkey for {feature.Name}: {hotkey}");
             }
         }

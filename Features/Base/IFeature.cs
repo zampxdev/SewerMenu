@@ -76,6 +76,13 @@ namespace SewerMenu.Features.Base
         void OnFixedUpdate();
         
         /// <summary>
+        /// Called every late update while the feature is enabled.
+        /// Use for camera control and post-movement adjustments.
+        /// Runs AFTER all Update and LateUpdate calls.
+        /// </summary>
+        void OnLateUpdate();
+        
+        /// <summary>
         /// Called during OnGUI for custom rendering.
         /// </summary>
         void OnGUI();

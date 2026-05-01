@@ -25,6 +25,14 @@ namespace SewerMenu.Features.Player
 
         public override void OnEnable()
         {
+            // Disable NoClip if active (mutual exclusion)
+            var noClip = FeatureManager.Instance.GetFeature<NoClip>("noclip");
+            if (noClip != null && noClip.IsEnabled)
+            {
+                noClip.IsEnabled = false;
+                SewerLogger.Debug("Disabled NoClip (mutual exclusion with FlyMode)");
+            }
+            
             SafeExecute(() =>
             {
                 var playerGO = GameTypes.PlayerGameObject;

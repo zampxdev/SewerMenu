@@ -113,6 +113,9 @@ namespace SewerMenu
                 FeatureManager.Instance.Update();
                 
                 KeybindManager.Instance.Update();
+                
+                // Process any pending config saves (debounced)
+                ConfigManager.Instance.ProcessPendingSave();
             }
             catch (Exception ex)
             {
@@ -131,6 +134,20 @@ namespace SewerMenu
             catch (Exception ex)
             {
                 SewerLogger.Error("Error in OnFixedUpdate", ex);
+            }
+        }
+        
+        public override void OnLateUpdate()
+        {
+            if (!_initialized || !_gameReady) return;
+            
+            try
+            {
+                FeatureManager.Instance.LateUpdate();
+            }
+            catch (Exception ex)
+            {
+                SewerLogger.Error("Error in OnLateUpdate", ex);
             }
         }
         

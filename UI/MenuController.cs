@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using UnityEngine;
-using Il2CppInterop.Runtime;
 using SewerMenu.Core;
 using SewerMenu.Core.Logging;
 using SewerMenu.Core.Config;
@@ -30,11 +29,6 @@ namespace SewerMenu.UI
         
         #region Static Fields (prevent GC)
         
-        // CRITICAL: Store delegate as static to prevent IL2CPP GC
-        // For IL2CPP, we use System.Action<int> and convert it
-        private static System.Action<int> _managedWindowFunc;
-        private static GUI.WindowFunction _cachedWindowFunc;
-        
         // Cache for player camera component
         private static PlayerCamera _playerCamera;
         private static bool _cameraWasEnabled;
@@ -47,8 +41,13 @@ namespace SewerMenu.UI
         private bool _isVisible = false;
         private int _currentTab = 0;
         private Vector2 _scrollPosition;
+        private Vector2 _targetScrollPosition;
+        private Vector2 _displayScrollPosition;
         private Rect _windowRect;
-        private readonly int _windowId = 12345;
+        private float _openAnim = 1f;
+        private float _tabAnim = 1f;
+        private bool _isDragging = false;
+        private Vector2 _dragOffset;
         
         // Resize state
         private bool _isResizing = false;
@@ -56,9 +55,9 @@ namespace SewerMenu.UI
         private Vector2 _resizeStartSize;
         
         // Size constraints
-        private const float MinWidth = 500f;
+        private const float MinWidth = 760f;
         private const float MaxWidth = 1400f;
-        private const float MinHeight = 400f;
+        private const float MinHeight = 560f;
         private const float MaxHeight = 1000f;
         private const float ResizeHandleSize = 20f;
         
@@ -91,11 +90,6 @@ namespace SewerMenu.UI
         public void Initialize()
         {
             if (_initialized) return;
-            
-            // Create the delegate ONCE and cache it statically
-            // For IL2CPP, we need to create the delegate properly
-            _managedWindowFunc = DrawWindowInternal;
-            _cachedWindowFunc = DelegateSupport.ConvertDelegate<GUI.WindowFunction>(_managedWindowFunc);
             
             var config = ConfigManager.Instance.Config;
             _windowRect = new Rect(config.UI.WindowX, config.UI.WindowY, config.UI.WindowWidth, config.UI.WindowHeight);
@@ -137,6 +131,11 @@ namespace SewerMenu.UI
         {
             if (_isVisible) return;
             _isVisible = true;
+            _openAnim = 0f;
+            _tabAnim = 0f;
+            _targetScrollPosition = _scrollPosition;
+            _displayScrollPosition = _scrollPosition;
+            SewerSkin.ResetTransientAnimations();
             
             // Unlock cursor
             Cursor.lockState = CursorLockMode.None;
@@ -262,6 +261,8 @@ namespace SewerMenu.UI
             
             // Initialize skin
             SewerSkin.BeginUI();
+            _openAnim = Mathf.MoveTowards(_openAnim, 1f, Time.unscaledDeltaTime * 8f);
+            _tabAnim = Mathf.MoveTowards(_tabAnim, 1f, Time.unscaledDeltaTime * 10f);
             
             // Handle resize BEFORE drawing window
             HandleResize();
@@ -272,8 +273,27 @@ namespace SewerMenu.UI
             _windowRect.width = Mathf.Clamp(_windowRect.width, MinWidth, MaxWidth);
             _windowRect.height = Mathf.Clamp(_windowRect.height, MinHeight, MaxHeight);
             
-            // Draw window using cached delegate
-            _windowRect = GUI.Window(_windowId, _windowRect, _cachedWindowFunc, "");
+            Rect drawRect = GetAnimatedWindowRect();
+            HandleWindowDrag(drawRect);
+            HandleSmoothScrollInput(drawRect);
+            drawRect = GetAnimatedWindowRect();
+
+            var oldColor = GUI.color;
+            GUI.color = new Color(oldColor.r, oldColor.g, oldColor.b, Mathf.Lerp(0.78f, 1f, _openAnim));
+            SewerSkin.DrawWindowPanel(drawRect);
+
+            Rect contentRect = new Rect(drawRect.x + 10f, drawRect.y + 8f, drawRect.width - 20f, drawRect.height - 16f);
+            GUILayout.BeginArea(contentRect);
+            try
+            {
+                DrawWindowContent();
+            }
+            catch (Exception ex)
+            {
+                SewerSkin.DrawStatus("Error: " + ex.Message, SewerSkin.StatusType.Error);
+            }
+            GUILayout.EndArea();
+            GUI.color = oldColor;
             
             // Draw resize grip on top of window
             DrawResizeGrip();
@@ -285,6 +305,25 @@ namespace SewerMenu.UI
         }
         
         private bool _isHoveringResize = false;
+
+        private Rect GetAnimatedWindowRect()
+        {
+            return new Rect(
+                _windowRect.x,
+                _windowRect.y - (1f - _openAnim) * 14f,
+                _windowRect.width,
+                _windowRect.height
+            );
+        }
+
+        private void HandleSmoothScrollInput(Rect drawRect)
+        {
+            Event e = Event.current;
+            if (e.type != EventType.ScrollWheel || !drawRect.Contains(e.mousePosition)) return;
+
+            _targetScrollPosition.y = Mathf.Max(0f, _targetScrollPosition.y + e.delta.y * 34f);
+            e.Use();
+        }
         
         private void HandleResize()
         {
@@ -324,6 +363,34 @@ namespace SewerMenu.UI
                 e.Use();
             }
         }
+
+        private void HandleWindowDrag(Rect drawRect)
+        {
+            if (_isResizing) return;
+
+            Event e = Event.current;
+            Vector2 mousePos = e.mousePosition;
+            Rect dragRect = new Rect(drawRect.x, drawRect.y, drawRect.width, 58f);
+
+            if (e.type == EventType.MouseDown && e.button == 0 && dragRect.Contains(mousePos))
+            {
+                _isDragging = true;
+                _dragOffset = new Vector2(mousePos.x - _windowRect.x, mousePos.y - _windowRect.y);
+                e.Use();
+            }
+            else if (e.type == EventType.MouseDrag && _isDragging)
+            {
+                _windowRect.x = mousePos.x - _dragOffset.x;
+                _windowRect.y = mousePos.y - _dragOffset.y;
+                e.Use();
+            }
+            else if (e.type == EventType.MouseUp && e.button == 0 && _isDragging)
+            {
+                _isDragging = false;
+                SaveWindowState();
+                e.Use();
+            }
+        }
         
         private void DrawResizeGrip()
         {
@@ -346,13 +413,11 @@ namespace SewerMenu.UI
             else
                 gripColor = new Color(0.6f, 0.6f, 0.6f, 0.6f);
             
-            // Draw background triangle
-            var oldBg = GUI.backgroundColor;
             var oldColor = GUI.color;
             
             // Draw a subtle background
-            GUI.color = new Color(0.1f, 0.1f, 0.12f, 0.9f);
-            GUI.DrawTexture(gripRect, Texture2D.whiteTexture);
+            GUI.color = new Color(0.03f, 0.04f, 0.04f, 0.5f);
+            GUI.DrawTexture(gripRect, SewerSkin.WhiteTexture);
             
             // Draw the grip dots pattern (3x3 dots in corner)
             GUI.color = gripColor;
@@ -368,7 +433,7 @@ namespace SewerMenu.UI
                 {
                     float x = startX + (2 - row + col) * dotSpacing;
                     float y = startY + row * dotSpacing;
-                    GUI.DrawTexture(new Rect(x, y, dotSize, dotSize), Texture2D.whiteTexture);
+                    GUI.DrawTexture(new Rect(x, y, dotSize, dotSize), SewerSkin.WhiteTexture);
                 }
             }
             
@@ -377,12 +442,11 @@ namespace SewerMenu.UI
             {
                 GUI.color = SewerSkin.AccentColor;
                 // Bottom edge highlight
-                GUI.DrawTexture(new Rect(gripRect.x, gripRect.y + gripRect.height - 2f, gripRect.width, 2f), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(gripRect.x, gripRect.y + gripRect.height - 2f, gripRect.width, 2f), SewerSkin.WhiteTexture);
                 // Right edge highlight
-                GUI.DrawTexture(new Rect(gripRect.x + gripRect.width - 2f, gripRect.y, 2f, gripRect.height), Texture2D.whiteTexture);
+                GUI.DrawTexture(new Rect(gripRect.x + gripRect.width - 2f, gripRect.y, 2f, gripRect.height), SewerSkin.WhiteTexture);
             }
             
-            GUI.backgroundColor = oldBg;
             GUI.color = oldColor;
         }
         
@@ -407,43 +471,48 @@ namespace SewerMenu.UI
             // ═══════════════════════════════════════════════════════════
             // HEADER - Clean modern style
             // ═══════════════════════════════════════════════════════════
-            Rect headerRect = GUILayoutUtility.GetRect(0, 32, GUILayout.ExpandWidth(true));
+            Rect headerRect = GUILayoutUtility.GetRect(0, 58, GUILayout.ExpandWidth(true));
             
-            // Header background with subtle gradient feel
+            // Header background with subtle depth.
             var oldColor = GUI.color;
-            GUI.color = new Color(0.04f, 0.05f, 0.07f, 1f);
-            GUI.DrawTexture(headerRect, Texture2D.whiteTexture);
-            GUI.color = oldColor;
+            SewerSkin.DrawRoundedRect(headerRect, new Color(0.035f, 0.046f, 0.041f, 0.98f), new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.58f), 6, 1);
+            SewerSkin.DrawRoundedRect(new Rect(headerRect.x + 1f, headerRect.y + 1f, headerRect.width - 2f, 12f), new Color(1f, 1f, 1f, 0.045f), Color.clear, 5, 0);
             
-            // Title: "SEWER" in accent, "MENU" in white
-            var titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold };
+            Rect logoRect = new Rect(headerRect.x + 12, headerRect.y + 10, 34, 34);
+            SewerSkin.DrawSoftGlow(logoRect, SewerSkin.AccentColor, 0.2f, 7);
+            SewerSkin.DrawRoundedRect(logoRect, new Color(SewerSkin.AccentColor.r, SewerSkin.AccentColor.g, SewerSkin.AccentColor.b, 0.13f), SewerSkin.AccentColor, 6, 1);
+
+            var logoStyle = new GUIStyle(GUI.skin.label) { fontSize = 19, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, clipping = TextClipping.Clip };
+            var titleStyle = new GUIStyle(GUI.skin.label) { fontSize = 18, fontStyle = FontStyle.Bold, clipping = TextClipping.Clip };
+            var subtitleStyle = new GUIStyle(GUI.skin.label) { fontSize = 10, clipping = TextClipping.Clip };
             
             var oldContentColor = GUI.contentColor;
             GUI.contentColor = SewerSkin.AccentColor;
-            GUI.Label(new Rect(headerRect.x + 12, headerRect.y + 6, 60, 20), "SEWER", titleStyle);
-            
+            GUI.Label(logoRect, "S", logoStyle);
+
             GUI.contentColor = SewerSkin.TextColor;
-            GUI.Label(new Rect(headerRect.x + 70, headerRect.y + 6, 50, 20), "MENU", titleStyle);
-            
-            // Version badge on right
-            string versionText = "v" + ModInfo.Version;
-            var versionStyle = new GUIStyle(GUI.skin.label) { fontSize = 10, alignment = TextAnchor.MiddleRight };
-            
-            // Version badge background
-            float badgeWidth = 42;
-            Rect badgeRect = new Rect(headerRect.x + headerRect.width - badgeWidth - 10, headerRect.y + 8, badgeWidth, 16);
-            GUI.color = new Color(SewerSkin.AccentColor.r, SewerSkin.AccentColor.g, SewerSkin.AccentColor.b, 0.15f);
-            GUI.DrawTexture(badgeRect, Texture2D.whiteTexture);
-            GUI.color = oldColor;
+            GUI.Label(new Rect(headerRect.x + 58, headerRect.y + 10, 74, 24), "SEWER", titleStyle);
             
             GUI.contentColor = SewerSkin.AccentGlow;
-            GUI.Label(badgeRect, versionText, new GUIStyle(GUI.skin.label) { fontSize = 10, alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(headerRect.x + 128, headerRect.y + 10, 64, 24), "MENU", titleStyle);
+
+            GUI.contentColor = SewerSkin.TextColor;
+            GUI.Label(new Rect(headerRect.x + 60, headerRect.y + 34, 250, 18), "2.0 UI beta - Schedule I mod menu", subtitleStyle);
+            
+            // Version badge on right
+            string versionText = "BETA";
+            
+            // Version badge background
+            float badgeWidth = 56;
+            Rect badgeRect = new Rect(headerRect.x + headerRect.width - badgeWidth - 12, headerRect.y + 18, badgeWidth, 22);
+            SewerSkin.DrawRoundedRect(badgeRect, new Color(SewerSkin.AccentColor.r, SewerSkin.AccentColor.g, SewerSkin.AccentColor.b, 0.16f), new Color(SewerSkin.AccentColor.r, SewerSkin.AccentColor.g, SewerSkin.AccentColor.b, 0.38f), 5, 1);
+            
+            GUI.contentColor = SewerSkin.AccentGlow;
+            GUI.Label(badgeRect, versionText, new GUIStyle(GUI.skin.label) { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter });
             GUI.contentColor = oldContentColor;
             
             // Bottom border
-            GUI.color = new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.4f);
-            GUI.DrawTexture(new Rect(headerRect.x, headerRect.y + headerRect.height - 1, headerRect.width, 1), Texture2D.whiteTexture);
-            GUI.color = oldColor;
+            SewerSkin.DrawSolid(new Rect(headerRect.x + 12f, headerRect.y + headerRect.height - 1, headerRect.width - 24f, 1), new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.48f));
             
             // ═══════════════════════════════════════════════════════════
             // TAB BAR - Modern style with underline indicator
@@ -451,15 +520,13 @@ namespace SewerMenu.UI
             GUILayout.Space(4);
             
             // Tab bar background
-            Rect tabBarRect = GUILayoutUtility.GetRect(0, 36, GUILayout.ExpandWidth(true));
-            oldColor = GUI.color;
-            GUI.color = new Color(0.06f, 0.075f, 0.09f, 1f);
-            GUI.DrawTexture(tabBarRect, Texture2D.whiteTexture);
-            GUI.color = oldColor;
+            Rect tabBarRect = GUILayoutUtility.GetRect(0, 38, GUILayout.ExpandWidth(true));
+            SewerSkin.DrawRoundedRect(tabBarRect, new Color(0.032f, 0.042f, 0.039f, 0.98f), new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.45f), 6, 1);
+            SewerSkin.DrawRoundedRect(new Rect(tabBarRect.x + 1f, tabBarRect.y + 1f, tabBarRect.width - 2f, 8f), new Color(1f, 1f, 1f, 0.035f), Color.clear, 5, 0);
             
             // Calculate tab widths
             float tabWidth = tabBarRect.width / _tabNames.Length;
-            float tabHeight = 34f;
+            float tabHeight = 36f;
             
             // Draw tabs
             for (int i = 0; i < _tabNames.Length; i++)
@@ -470,13 +537,21 @@ namespace SewerMenu.UI
                 // Hover detection
                 bool isHovered = tabRect.Contains(Event.current.mousePosition);
                 
-                // Tab background on hover (subtle)
-                if (isHovered && !isSelected)
+                Rect visualRect = new Rect(tabRect.x + 4f, tabRect.y + 4f, tabRect.width - 8f, tabRect.height - 8f);
+
+                if (isSelected)
                 {
-                    oldColor = GUI.color;
-                    GUI.color = new Color(0.1f, 0.12f, 0.15f, 1f);
-                    GUI.DrawTexture(new Rect(tabRect.x + 2, tabRect.y + 2, tabRect.width - 4, tabRect.height - 4), Texture2D.whiteTexture);
-                    GUI.color = oldColor;
+                    SewerSkin.DrawSoftGlow(visualRect, SewerSkin.AccentColor, 0.12f, 6);
+                    SewerSkin.DrawRoundedRect(visualRect, new Color(SewerSkin.AccentColor.r, SewerSkin.AccentColor.g, SewerSkin.AccentColor.b, 0.13f), new Color(SewerSkin.AccentColor.r, SewerSkin.AccentColor.g, SewerSkin.AccentColor.b, 0.42f), 6, 1);
+                }
+                else if (isHovered)
+                {
+                    SewerSkin.DrawRoundedRect(visualRect, new Color(0.085f, 0.105f, 0.096f, 0.96f), new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.45f), 6, 1);
+                }
+
+                if (i > 0)
+                {
+                    SewerSkin.DrawSolid(new Rect(tabRect.x, tabRect.y + 9f, 1f, tabRect.height - 18f), new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.34f));
                 }
                 
                 // Tab text
@@ -486,7 +561,8 @@ namespace SewerMenu.UI
                 { 
                     alignment = TextAnchor.MiddleCenter, 
                     fontSize = 12,
-                    fontStyle = isSelected ? FontStyle.Bold : FontStyle.Normal
+                    fontStyle = isSelected ? FontStyle.Bold : FontStyle.Normal,
+                    clipping = TextClipping.Clip
                 };
                 GUI.Label(tabRect, _tabNames[i], tabStyle);
                 GUI.contentColor = oldContentColor;
@@ -494,12 +570,9 @@ namespace SewerMenu.UI
                 // Underline indicator for selected tab
                 if (isSelected)
                 {
-                    oldColor = GUI.color;
-                    GUI.color = SewerSkin.AccentColor;
                     float underlineWidth = tabWidth * 0.6f;
                     float underlineX = tabRect.x + (tabWidth - underlineWidth) / 2f;
-                    GUI.DrawTexture(new Rect(underlineX, tabRect.y + tabHeight - 3, underlineWidth, 3), Texture2D.whiteTexture);
-                    GUI.color = oldColor;
+                    SewerSkin.DrawRoundedRect(new Rect(underlineX, tabRect.y + tabHeight - 4, underlineWidth, 3), SewerSkin.AccentColor, Color.clear, 2, 0);
                 }
                 
                 // Invisible button for click detection
@@ -508,16 +581,17 @@ namespace SewerMenu.UI
                     if (_currentTab != i)
                     {
                         _currentTab = i;
+                        _tabAnim = 0f;
                         _scrollPosition = Vector2.zero;
+                        _targetScrollPosition = Vector2.zero;
+                        _displayScrollPosition = Vector2.zero;
+                        SewerSkin.ResetTransientAnimations();
                     }
                 }
             }
             
             // Bottom border line
-            oldColor = GUI.color;
-            GUI.color = new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.5f);
-            GUI.DrawTexture(new Rect(tabBarRect.x, tabBarRect.y + tabHeight, tabBarRect.width, 1), Texture2D.whiteTexture);
-            GUI.color = oldColor;
+            SewerSkin.DrawSolid(new Rect(tabBarRect.x, tabBarRect.y + tabHeight, tabBarRect.width, 1), new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.5f));
             
             GUILayout.Space(8);
             
@@ -526,15 +600,40 @@ namespace SewerMenu.UI
             // ═══════════════════════════════════════════════════════════
             var oldBg = GUI.backgroundColor;
             GUI.backgroundColor = new Color(0.055f, 0.07f, 0.085f, 1f);
-            _scrollPosition = GUILayout.BeginScrollView(_scrollPosition, GUI.skin.box, GUILayout.ExpandHeight(true));
+            float scrollLerp = 1f - Mathf.Exp(-Time.unscaledDeltaTime * 16f);
+            _displayScrollPosition = Vector2.Lerp(_displayScrollPosition, _targetScrollPosition, scrollLerp);
+            _scrollPosition = GUILayout.BeginScrollView(_displayScrollPosition, GUI.skin.box, GUILayout.ExpandHeight(true));
             GUI.backgroundColor = oldBg;
+
+            if (_scrollPosition != _displayScrollPosition)
+            {
+                _targetScrollPosition = _scrollPosition;
+                _displayScrollPosition = _scrollPosition;
+            }
+
+            if (_tabAnim < 1f)
+            {
+                GUILayout.Space((1f - _tabAnim) * 12f);
+            }
             
             try
             {
                 var category = _tabCategories[_currentTab];
                 if (_pages.TryGetValue(category, out var page))
                 {
+                    var oldGuiColor = GUI.color;
+                    var oldContentColor2 = GUI.contentColor;
+                    float pageAlpha = Mathf.Lerp(0.68f, 1f, 1f - Mathf.Pow(1f - _tabAnim, 3f));
+                    GUI.color = new Color(oldGuiColor.r, oldGuiColor.g, oldGuiColor.b, oldGuiColor.a * pageAlpha);
+                    GUI.contentColor = new Color(oldContentColor2.r, oldContentColor2.g, oldContentColor2.b, oldContentColor2.a * pageAlpha);
+                    GUILayout.BeginHorizontal();
+                    GUILayout.Space((1f - _tabAnim) * 10f);
+                    GUILayout.BeginVertical();
                     page.Draw();
+                    GUILayout.EndVertical();
+                    GUILayout.EndHorizontal();
+                    GUI.color = oldGuiColor;
+                    GUI.contentColor = oldContentColor2;
                 }
             }
             catch (System.Exception ex)
@@ -552,14 +651,7 @@ namespace SewerMenu.UI
             Rect statusRect = GUILayoutUtility.GetRect(0, 26, GUILayout.ExpandWidth(true));
             
             // Status bar background
-            oldColor = GUI.color;
-            GUI.color = new Color(0.04f, 0.05f, 0.065f, 1f);
-            GUI.DrawTexture(statusRect, Texture2D.whiteTexture);
-            
-            // Top border
-            GUI.color = new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.3f);
-            GUI.DrawTexture(new Rect(statusRect.x, statusRect.y, statusRect.width, 1), Texture2D.whiteTexture);
-            GUI.color = oldColor;
+            SewerSkin.DrawRoundedRect(statusRect, new Color(0.032f, 0.041f, 0.042f, 0.98f), new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.44f), 6, 1);
             
             // Active features indicator (left side)
             int activeCount = FeatureManager.Instance.EnabledCount;

@@ -107,7 +107,7 @@ namespace SewerMenu.Features.World
 
                 hours = Mathf.Clamp(hours, 0f, 24f);
                 int minutes = Mathf.RoundToInt(hours * 60f);
-                time.SetTime(minutes, false);
+                time.SetTimeAndSync(minutes);
                 SewerLogger.Success($"Set time to {FormatTime(hours)}");
             }, "setting time");
         }
@@ -124,7 +124,7 @@ namespace SewerMenu.Features.World
                 }
 
                 minutes = Mathf.Clamp(minutes, 0, 1440);
-                time.SetTime(minutes, false);
+                time.SetTimeAndSync(minutes);
                 SewerLogger.Success($"Set time to {FormatTime(minutes / 60f)}");
             }, "setting time");
         }
@@ -151,7 +151,7 @@ namespace SewerMenu.Features.World
                 try
                 {
                     int newDays = time.ElapsedDays + 1;
-                    time.SetElapsedDays(newDays);
+                    time.ElapsedDays = newDays;
                     SewerLogger.Success($"Skipped to day {newDays}");
                 }
                 catch (System.Exception ex)
@@ -168,7 +168,7 @@ namespace SewerMenu.Features.World
 
             try
             {
-                return time.TimeProgressionMultiplier;
+                return time.TimeSpeedMultiplier;
             }
             catch
             {
@@ -185,7 +185,7 @@ namespace SewerMenu.Features.World
 
                 try
                 {
-                    time.TimeProgressionMultiplier = multiplier;
+                    time.SetTimeSpeedMultiplier(multiplier);
                     SewerLogger.Success($"Set time multiplier to {multiplier:F1}x");
                 }
                 catch (System.Exception ex)
@@ -206,14 +206,14 @@ namespace SewerMenu.Features.World
                 {
                     if (frozen && !_wasTimeFrozen)
                     {
-                        _originalTimeMultiplier = time.TimeProgressionMultiplier;
-                        time.TimeProgressionMultiplier = 0f;
+                        _originalTimeMultiplier = time.TimeSpeedMultiplier;
+                        time.SetTimeSpeedMultiplier(0f);
                         _wasTimeFrozen = true;
                         SewerLogger.Success("Time frozen");
                     }
                     else if (!frozen && _wasTimeFrozen)
                     {
-                        time.TimeProgressionMultiplier = _originalTimeMultiplier;
+                        time.SetTimeSpeedMultiplier(_originalTimeMultiplier);
                         _wasTimeFrozen = false;
                         SewerLogger.Success("Time unfrozen");
                     }

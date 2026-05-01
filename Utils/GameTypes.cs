@@ -193,7 +193,7 @@ namespace SewerMenu.Utils
             {
                 if (_playerInventory == null || !_playerInventory)
                 {
-                    _playerInventory = UnityEngine.Object.FindObjectOfType<PlayerInventory>();
+                    _playerInventory = FindLocalInventory();
                 }
                 return _playerInventory;
             }
@@ -217,6 +217,18 @@ namespace SewerMenu.Utils
         {
             try
             {
+                try
+                {
+                    var local = Player.Local;
+                    if (local != null && local)
+                    {
+                        _localPlayer = local;
+                        SewerLogger.Debug($"Found local player via Player.Local: {local.name}");
+                        return;
+                    }
+                }
+                catch { }
+
                 var players = UnityEngine.Object.FindObjectsOfType<Player>();
                 foreach (var player in players)
                 {
@@ -277,6 +289,63 @@ namespace SewerMenu.Utils
             {
                 SewerLogger.Error("Error finding local player", ex);
             }
+        }
+
+        private static PlayerInventory FindLocalInventory()
+        {
+            try
+            {
+                var player = LocalPlayer;
+                if (player != null)
+                {
+                    var inventory = player.GetComponent<PlayerInventory>();
+                    if (inventory != null) return inventory;
+
+                    inventory = player.GetComponentInChildren<PlayerInventory>(true);
+                    if (inventory != null) return inventory;
+                }
+            }
+            catch { }
+
+            try
+            {
+                if (PlayerInventory.InstanceExists && PlayerInventory.Instance != null)
+                {
+                    return PlayerInventory.Instance;
+                }
+            }
+            catch { }
+
+            try
+            {
+                var inventories = UnityEngine.Object.FindObjectsOfType<PlayerInventory>(true);
+                if (inventories == null || inventories.Length == 0) return null;
+
+                if (_localPlayer != null)
+                {
+                    foreach (var inventory in inventories)
+                    {
+                        if (inventory == null) continue;
+
+                        try
+                        {
+                            if (inventory.transform.root == _localPlayer.transform.root)
+                            {
+                                return inventory;
+                            }
+                        }
+                        catch { }
+                    }
+                }
+
+                if (inventories.Length == 1)
+                {
+                    return inventories[0];
+                }
+            }
+            catch { }
+
+            return null;
         }
         
         #endregion
@@ -434,13 +503,46 @@ namespace SewerMenu.Utils
         #endregion
         
         #region Item Access
+
+        public static string LastInventoryError { get; private set; }
         
         public static System.Collections.Generic.List<ItemDefinition> GetAllItemDefinitions()
         {
             var result = new System.Collections.Generic.List<ItemDefinition>();
+            var seen = new System.Collections.Generic.HashSet<string>(StringComparer.OrdinalIgnoreCase);
+
+            void AddDefinition(ItemDefinition definition)
+            {
+                if (definition == null) return;
+
+                try
+                {
+                    var id = definition.ID;
+                    if (string.IsNullOrWhiteSpace(id)) return;
+                    if (!seen.Add(id)) return;
+
+                    result.Add(definition);
+                }
+                catch { }
+            }
+
             try
             {
-                var registry = UnityEngine.Object.FindObjectOfType<Registry>();
+                Registry registry = null;
+                try
+                {
+                    if (Registry.InstanceExists && Registry.Instance != null)
+                    {
+                        registry = Registry.Instance;
+                    }
+                }
+                catch { }
+
+                if (registry == null)
+                {
+                    registry = UnityEngine.Object.FindObjectOfType<Registry>(true);
+                }
+
                 if (registry != null)
                 {
                     var items = registry.GetAllItems();
@@ -448,22 +550,49 @@ namespace SewerMenu.Utils
                     {
                         foreach (var item in items)
                         {
-                            if (item != null)
-                                result.Add(item);
+                            AddDefinition(item);
                         }
                     }
+
+                    try
+                    {
+                        var registeredItems = registry.ItemRegistry;
+                        if (registeredItems != null)
+                        {
+                            foreach (var itemRegister in registeredItems)
+                            {
+                                if (itemRegister != null)
+                                {
+                                    AddDefinition(itemRegister.Definition);
+                                }
+                            }
+                        }
+                    }
+                    catch { }
+
+                    try
+                    {
+                        var runtimeItems = registry.ItemsAddedAtRuntime;
+                        if (runtimeItems != null)
+                        {
+                            foreach (var itemRegister in runtimeItems)
+                            {
+                                if (itemRegister != null)
+                                {
+                                    AddDefinition(itemRegister.Definition);
+                                }
+                            }
+                        }
+                    }
+                    catch { }
                 }
                 
-                if (result.Count == 0)
+                var allDefs = Resources.FindObjectsOfTypeAll<ItemDefinition>();
+                if (allDefs != null)
                 {
-                    var allDefs = Resources.FindObjectsOfTypeAll<ItemDefinition>();
-                    if (allDefs != null)
+                    foreach (var def in allDefs)
                     {
-                        foreach (var def in allDefs)
-                        {
-                            if (def != null && !string.IsNullOrEmpty(def.ID))
-                                result.Add(def);
-                        }
+                        AddDefinition(def);
                     }
                 }
             }
@@ -509,22 +638,60 @@ namespace SewerMenu.Utils
         {
             try
             {
+                LastInventoryError = null;
+
+                if (definition == null)
+                {
+                    LastInventoryError = "Cannot add null item definition";
+                    SewerLogger.Warning(LastInventoryError);
+                    return false;
+                }
+
                 var inventory = Inventory;
                 if (inventory == null)
                 {
-                    SewerLogger.Warning("Player inventory not found");
+                    LastInventoryError = "Player inventory not found. Load into a save before spawning items.";
+                    SewerLogger.Warning(LastInventoryError);
                     return false;
                 }
                 
+                var beforeAmount = 0u;
+                try { beforeAmount = inventory.GetAmountOfItem(definition.ID); } catch { }
+
                 var instance = CreateItemInstance(definition, quantity);
                 if (instance != null)
                 {
+                    try
+                    {
+                        if (!inventory.CanItemFitInInventory(instance, quantity))
+                        {
+                            LastInventoryError = $"Not enough inventory space for {quantity}x {definition.Name}.";
+                            SewerLogger.Warning(LastInventoryError);
+                            return false;
+                        }
+                    }
+                    catch { }
+
                     inventory.AddItemToInventory(instance);
+
+                    try
+                    {
+                        var afterAmount = inventory.GetAmountOfItem(definition.ID);
+                        if (afterAmount <= beforeAmount)
+                        {
+                            LastInventoryError = $"Inventory did not accept {definition.Name}.";
+                            SewerLogger.Warning($"{LastInventoryError} ({definition.ID})");
+                            return false;
+                        }
+                    }
+                    catch { }
+
                     return true;
                 }
             }
             catch (Exception ex)
             {
+                LastInventoryError = $"Failed to add item: {ex.Message}";
                 SewerLogger.Error($"Failed to add item to inventory", ex);
             }
             return false;

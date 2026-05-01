@@ -71,12 +71,21 @@ namespace SewerMenu.Core.Keybinds
         
         public void RegisterKeybind(string id, KeyCode defaultKey, Action action)
         {
+            // Use saved keybind from config if available, otherwise use default
+            KeyCode keyToUse = defaultKey;
             var config = ConfigManager.Instance.Config;
-            if (config?.UI != null)
+            
+            // Check for menu toggle keybind in UI config
+            if (id == "menu_toggle" && config?.UI != null && !string.IsNullOrEmpty(config.UI.MenuKey))
             {
+                if (Enum.TryParse<KeyCode>(config.UI.MenuKey, out var parsedKey))
+                {
+                    keyToUse = parsedKey;
+                    SewerLogger.Debug($"Loaded saved keybind for {id}: {keyToUse}");
+                }
             }
             
-            _keybinds[id] = defaultKey;
+            _keybinds[id] = keyToUse;
             _keybindActions[id] = action;
             
             SewerLogger.Debug($"Registered keybind: {id} = {defaultKey}");
@@ -93,6 +102,17 @@ namespace SewerMenu.Core.Keybinds
             if (_keybinds.ContainsKey(id))
             {
                 _keybinds[id] = key;
+                
+                // Persist menu toggle to UI config
+                if (id == "menu_toggle")
+                {
+                    var config = ConfigManager.Instance.Config;
+                    if (config?.UI != null)
+                    {
+                        config.UI.MenuKey = key.ToString();
+                    }
+                }
+                
                 SewerLogger.Debug($"Set keybind: {id} = {key}");
                 ConfigManager.Instance.QueueSave();
             }

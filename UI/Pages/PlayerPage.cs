@@ -30,10 +30,7 @@ namespace SewerMenu.UI.Pages
             var healthEnergy = FeatureManager.Instance.GetFeature<HealthEnergy>("healthenergy");
             if (healthEnergy != null)
             {
-                // Enable the feature if not already (needed for OnUpdate to run)
-                if (!healthEnergy.IsEnabled) healthEnergy.IsEnabled = true;
-                
-                // Display current values
+                // Display current values (works regardless of IsEnabled state)
                 float currentHealth = healthEnergy.GetCurrentHealth();
                 float currentEnergy = healthEnergy.GetCurrentEnergy();
                 DrawInfo("Health", $"{currentHealth:F0} / 100");

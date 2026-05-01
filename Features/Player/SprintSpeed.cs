@@ -33,7 +33,7 @@ namespace SewerMenu.Features.Player
                 {
                     try
                     {
-                        movement.MoveSpeedMultiplier = _originalSpeed;
+                        Il2CppScheduleOne.PlayerScripts.PlayerMovement.StaticMoveSpeedMultiplier = _originalSpeed;
                         SewerLogger.Debug($"SprintSpeed disabled - restored speed to {_originalSpeed}");
                     }
                     catch { }
@@ -55,16 +55,16 @@ namespace SewerMenu.Features.Player
                     // Store original speed ONCE ever (first time we see the movement component)
                     if (!_hasStoredOriginal)
                     {
-                        _originalSpeed = movement.MoveSpeedMultiplier;
+                        _originalSpeed = Il2CppScheduleOne.PlayerScripts.PlayerMovement.StaticMoveSpeedMultiplier;
                         _hasStoredOriginal = true;
                         SewerLogger.Debug($"SprintSpeed: Stored original speed = {_originalSpeed}");
                     }
 
                     // Apply speed multiplier
                     float targetSpeed = _originalSpeed * Multiplier;
-                    if (System.Math.Abs(movement.MoveSpeedMultiplier - targetSpeed) > 0.01f)
+                    if (System.Math.Abs(Il2CppScheduleOne.PlayerScripts.PlayerMovement.StaticMoveSpeedMultiplier - targetSpeed) > 0.01f)
                     {
-                        movement.MoveSpeedMultiplier = targetSpeed;
+                        Il2CppScheduleOne.PlayerScripts.PlayerMovement.StaticMoveSpeedMultiplier = targetSpeed;
                     }
                 }
                 catch (System.Exception ex)

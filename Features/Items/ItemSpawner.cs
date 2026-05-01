@@ -20,6 +20,8 @@ namespace SewerMenu.Features.Items
         public int SelectedIndex { get; set; } = 0;
         public int SpawnAmount { get; set; } = 1;
         public string SearchFilter { get; set; } = "";
+        public string LastSpawnMessage { get; private set; } = "";
+        public bool LastSpawnSucceeded { get; private set; } = true;
         
         private List<ItemInfo> _allItems = new List<ItemInfo>();
         private List<ItemInfo> _filteredItems = new List<ItemInfo>();
@@ -159,11 +161,15 @@ namespace SewerMenu.Features.Items
                 
                 if (success)
                 {
-                    SewerLogger.Success($"Spawned {spawnAmount}x {item.Name}");
+                    LastSpawnSucceeded = true;
+                    LastSpawnMessage = $"Spawned {spawnAmount}x {item.Name}";
+                    SewerLogger.Success($"Spawned {spawnAmount}x {item.Name} ({item.Id})");
                 }
                 else
                 {
-                    SewerLogger.Warning($"Failed to spawn {item.Name}");
+                    LastSpawnSucceeded = false;
+                    LastSpawnMessage = GameTypes.LastInventoryError ?? $"Failed to spawn {item.Name}";
+                    SewerLogger.Warning($"Failed to spawn {item.Name} ({item.Id})");
                 }
             }, "spawning item");
         }
@@ -182,11 +188,15 @@ namespace SewerMenu.Features.Items
                 bool success = GameTypes.AddItemToInventory(def, amount);
                 if (success)
                 {
-                    SewerLogger.Success($"Spawned {amount}x {def.Name}");
+                    LastSpawnSucceeded = true;
+                    LastSpawnMessage = $"Spawned {amount}x {def.Name}";
+                    SewerLogger.Success($"Spawned {amount}x {def.Name} ({def.ID})");
                 }
                 else
                 {
-                    SewerLogger.Warning($"Failed to spawn {def.Name}");
+                    LastSpawnSucceeded = false;
+                    LastSpawnMessage = GameTypes.LastInventoryError ?? $"Failed to spawn {def.Name}";
+                    SewerLogger.Warning($"Failed to spawn {def.Name} ({def.ID})");
                 }
             }, "spawning item by ID");
         }

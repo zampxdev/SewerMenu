@@ -27,6 +27,14 @@ namespace SewerMenu.Features.Player
 
         public override void OnEnable()
         {
+            // Disable FlyMode if active (mutual exclusion)
+            var flyMode = FeatureManager.Instance.GetFeature<FlyMode>("flymode");
+            if (flyMode != null && flyMode.IsEnabled)
+            {
+                flyMode.IsEnabled = false;
+                SewerLogger.Debug("Disabled FlyMode (mutual exclusion with NoClip)");
+            }
+            
             SafeExecute(() =>
             {
                 var playerGO = GameTypes.PlayerGameObject;

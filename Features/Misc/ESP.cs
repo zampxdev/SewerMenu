@@ -28,20 +28,50 @@ namespace SewerMenu.Features.Misc
         public bool ShowDistance { get; set; } = true;
         public bool ShowBoxes { get; set; } = false;
         public float MaxDistance { get; set; } = 100f;
+        public float RefreshInterval { get; set; } = 0.12f;
+        public int MaxLabelsPerFrame { get; set; } = 90;
 
+        private readonly List<EspTarget> _policeTargets = new List<EspTarget>(32);
+        private readonly List<EspTarget> _dealerTargets = new List<EspTarget>(32);
+        private readonly List<EspTarget> _customerTargets = new List<EspTarget>(64);
+        private readonly List<EspTarget> _npcTargets = new List<EspTarget>(96);
+        private readonly List<EspTarget> _vehicleTargets = new List<EspTarget>(64);
+        private readonly List<EspTarget> _itemTargets = new List<EspTarget>(64);
+        private readonly List<EspTarget> _scratchTargets = new List<EspTarget>(128);
         private GUIStyle _labelStyle;
         private Camera _camera;
         private Transform _playerTransform;
-        
-        // Cached arrays to reduce GC
-        private float _lastUpdateTime;
-        private const float UpdateInterval = 0.1f;
+        private float _nextRefreshTime;
+        private int _refreshCursor;
+
+        public override void OnEnable()
+        {
+            _nextRefreshTime = 0f;
+            _refreshCursor = 0;
+            ClearAllTargets();
+        }
+
+        public override void OnDisable()
+        {
+            ClearAllTargets();
+            _scratchTargets.Clear();
+        }
+
+        public override void OnUpdate()
+        {
+            if (!IsEnabled) return;
+
+            if (Time.unscaledTime >= _nextRefreshTime)
+            {
+                SafeExecute(RefreshNextTargetGroup, "refreshing ESP targets");
+                _nextRefreshTime = Time.unscaledTime + Mathf.Clamp(RefreshInterval, 0.05f, 0.75f);
+            }
+        }
 
         public override void OnGUI()
         {
             if (!IsEnabled) return;
 
-            // Initialize style
             if (_labelStyle == null)
             {
                 _labelStyle = new GUIStyle(GUI.skin.label)
@@ -52,288 +82,405 @@ namespace SewerMenu.Features.Misc
                 };
             }
 
-            // Get camera and player
-            _camera = Camera.main;
-            var player = GameFinder.GetLocalPlayer();
-            _playerTransform = player?.transform;
-
+            if (_camera == null) _camera = Camera.main;
+            if (_playerTransform == null) _playerTransform = GameTypes.PlayerTransform;
             if (_camera == null || _playerTransform == null) return;
 
-            // Draw ESP for different entity types using actual game types
-            if (ShowPolice) DrawPoliceESP();
-            if (ShowDealers) DrawDealerESP();
-            if (ShowCustomers) DrawCustomerESP();
-            if (ShowNPCs) DrawNPCESP();
-            if (ShowVehicles) DrawVehicleESP();
-            if (ShowItems) DrawItemESP();
+            var drawn = 0;
+            if (ShowPolice) drawn = DrawTargetList(_policeTargets, drawn);
+            if (ShowDealers) drawn = DrawTargetList(_dealerTargets, drawn);
+            if (ShowCustomers) drawn = DrawTargetList(_customerTargets, drawn);
+            if (ShowNPCs) drawn = DrawTargetList(_npcTargets, drawn);
+            if (ShowVehicles) drawn = DrawTargetList(_vehicleTargets, drawn);
+            if (ShowItems) DrawTargetList(_itemTargets, drawn);
         }
 
-        private void DrawPoliceESP()
+        private void RefreshNextTargetGroup()
+        {
+            _camera = Camera.main;
+            _playerTransform = GameTypes.PlayerTransform;
+            if (_camera == null || _playerTransform == null) return;
+
+            for (var attempt = 0; attempt < 6; attempt++)
+            {
+                var group = _refreshCursor;
+                _refreshCursor = (_refreshCursor + 1) % 6;
+
+                var targetList = GetTargetList(group);
+                if (!IsGroupEnabled(group))
+                {
+                    targetList.Clear();
+                    continue;
+                }
+
+                _scratchTargets.Clear();
+
+                switch (group)
+                {
+                    case 0: AddPoliceTargets(); break;
+                    case 1: AddDealerTargets(); break;
+                    case 2: AddCustomerTargets(); break;
+                    case 3: AddNpcTargets(); break;
+                    case 4: AddVehicleTargets(); break;
+                    case 5: AddItemTargets(); break;
+                }
+
+                targetList.Clear();
+                targetList.AddRange(_scratchTargets);
+                break;
+            }
+        }
+
+        private bool IsGroupEnabled(int group)
+        {
+            return group switch
+            {
+                0 => ShowPolice,
+                1 => ShowDealers,
+                2 => ShowCustomers,
+                3 => ShowNPCs,
+                4 => ShowVehicles,
+                5 => ShowItems,
+                _ => false
+            };
+        }
+
+        private List<EspTarget> GetTargetList(int group)
+        {
+            return group switch
+            {
+                0 => _policeTargets,
+                1 => _dealerTargets,
+                2 => _customerTargets,
+                3 => _npcTargets,
+                4 => _vehicleTargets,
+                5 => _itemTargets,
+                _ => _scratchTargets
+            };
+        }
+
+        private void ClearAllTargets()
+        {
+            _policeTargets.Clear();
+            _dealerTargets.Clear();
+            _customerTargets.Clear();
+            _npcTargets.Clear();
+            _vehicleTargets.Clear();
+            _itemTargets.Clear();
+        }
+
+        private int DrawTargetList(List<EspTarget> targets, int drawn)
+        {
+            for (var i = 0; i < targets.Count && drawn < MaxLabelsPerFrame; i++)
+            {
+                if (DrawEntityLabel(targets[i]))
+                {
+                    drawn++;
+                }
+            }
+
+            return drawn;
+        }
+
+        private void AddPoliceTargets()
         {
             try
             {
                 var police = UnityEngine.Object.FindObjectsOfType<PoliceOfficer>();
                 if (police == null) return;
-                
+
                 foreach (var officer in police)
                 {
                     if (officer == null) continue;
+
+                    var label = "POLICE";
                     try
                     {
-                        string label = "POLICE";
-                        // Try to get officer state
-                        try
+                        var npc = officer.GetComponent<NPC>();
+                        if (npc != null && !npc.IsConscious)
                         {
-                            var npc = officer.GetComponent<NPC>();
-                            if (npc != null && npc.IsConscious == false)
-                                label = "POLICE (KO)";
+                            label = "POLICE (KO)";
                         }
-                        catch { }
-                        
-                        DrawEntityLabel(officer.transform, label, new Color(1f, 0.2f, 0.2f), 1.8f);
                     }
-                    catch { continue; }
+                    catch { }
+
+                    AddTarget(officer.transform, label, new Color(1f, 0.2f, 0.2f), 1.8f);
                 }
             }
             catch { }
         }
 
-        private void DrawDealerESP()
+        private void AddDealerTargets()
         {
             try
             {
                 var dealers = UnityEngine.Object.FindObjectsOfType<Dealer>();
                 if (dealers == null) return;
-                
+
                 foreach (var dealer in dealers)
                 {
                     if (dealer == null) continue;
+
+                    var label = "Dealer";
+                    try { label = dealer.FirstName ?? "Dealer"; } catch { }
+
                     try
                     {
-                        string name = "Dealer";
-                        try { name = dealer.FirstName ?? "Dealer"; } catch { }
-                        
-                        string label = name;
-                        try
+                        if (dealer.IsRecruited)
                         {
-                            if (dealer.IsRecruited)
-                                label += " [RECRUITED]";
+                            label += " [RECRUITED]";
                         }
-                        catch { }
-                        
-                        DrawEntityLabel(dealer.transform, label, new Color(0.2f, 1f, 0.5f), 1.8f);
                     }
-                    catch { continue; }
+                    catch { }
+
+                    AddTarget(dealer.transform, label, new Color(0.2f, 1f, 0.5f), 1.8f);
                 }
             }
             catch { }
         }
 
-        private void DrawCustomerESP()
+        private void AddCustomerTargets()
         {
             try
             {
                 var customers = UnityEngine.Object.FindObjectsOfType<Customer>();
                 if (customers == null) return;
-                
+
                 foreach (var customer in customers)
                 {
                     if (customer == null) continue;
+
+                    var label = "Customer";
                     try
                     {
-                        string name = "Customer";
-                        try 
-                        { 
-                            var npc = customer.NPC;
-                            if (npc != null)
-                                name = npc.FirstName ?? "Customer";
-                        } 
-                        catch { }
-                        
-                        string label = name;
-                        try
+                        var npc = customer.NPC;
+                        if (npc != null)
                         {
-                            if (customer.IsAwaitingDelivery)
-                                label += " [WAITING]";
+                            label = npc.FirstName ?? "Customer";
                         }
-                        catch { }
-                        
-                        DrawEntityLabel(customer.transform, label, new Color(1f, 0.8f, 0.2f), 1.8f);
                     }
-                    catch { continue; }
+                    catch { }
+
+                    try
+                    {
+                        if (customer.IsAwaitingDelivery)
+                        {
+                            label += " [WAITING]";
+                        }
+                    }
+                    catch { }
+
+                    AddTarget(customer.transform, label, new Color(1f, 0.8f, 0.2f), 1.8f);
                 }
             }
             catch { }
         }
 
-        private void DrawNPCESP()
+        private void AddNpcTargets()
         {
             try
             {
                 var npcs = UnityEngine.Object.FindObjectsOfType<NPC>();
                 if (npcs == null) return;
-                
+
                 foreach (var npc in npcs)
                 {
                     if (npc == null) continue;
+
                     try
                     {
-                        // Skip if already shown as police, dealer, or customer
                         if (npc.GetComponent<PoliceOfficer>() != null) continue;
                         if (npc.GetComponent<Dealer>() != null) continue;
                         if (npc.GetComponent<Customer>() != null) continue;
-                        
-                        string name = "NPC";
-                        try { name = npc.FirstName ?? "NPC"; } catch { }
-                        
-                        string label = name;
-                        try
-                        {
-                            if (!npc.IsConscious)
-                                label += " (KO)";
-                        }
-                        catch { }
-                        
-                        DrawEntityLabel(npc.transform, label, Theme.Text, 1.8f);
                     }
-                    catch { continue; }
+                    catch { }
+
+                    var label = "NPC";
+                    try { label = npc.FirstName ?? "NPC"; } catch { }
+
+                    try
+                    {
+                        if (!npc.IsConscious)
+                        {
+                            label += " (KO)";
+                        }
+                    }
+                    catch { }
+
+                    AddTarget(npc.transform, label, Theme.Text, 1.8f);
                 }
             }
             catch { }
         }
 
-        private void DrawVehicleESP()
+        private void AddVehicleTargets()
         {
             try
             {
                 var vehicles = UnityEngine.Object.FindObjectsOfType<LandVehicle>();
                 if (vehicles == null) return;
-                
+
                 foreach (var vehicle in vehicles)
                 {
                     if (vehicle == null) continue;
+
+                    var label = "Vehicle";
                     try
                     {
-                        string name = "Vehicle";
-                        try 
-                        { 
-                            // Use VehicleCode from VehicleData, or fallback to GameObject name
-                            var data = vehicle.GetVehicleData();
-                            if (data != null && !string.IsNullOrEmpty(data.VehicleCode))
-                                name = data.VehicleCode;
-                            else
-                                name = vehicle.gameObject.name;
-                        } 
-                        catch 
+                        var data = vehicle.GetVehicleData();
+                        if (data != null && !string.IsNullOrEmpty(data.VehicleCode))
                         {
-                            try { name = vehicle.gameObject.name; } catch { }
+                            label = data.VehicleCode;
                         }
-                        
-                        string label = name;
-                        try
+                        else
                         {
-                            if (vehicle.IsPlayerOwned)
-                                label += " [OWNED]";
+                            label = vehicle.gameObject.name;
                         }
-                        catch { }
-                        
-                        DrawEntityLabel(vehicle.transform, label, new Color(0.5f, 0.8f, 1f), 2f);
                     }
-                    catch { continue; }
+                    catch
+                    {
+                        try { label = vehicle.gameObject.name; } catch { }
+                    }
+
+                    try
+                    {
+                        if (vehicle.IsPlayerOwned)
+                        {
+                            label += " [OWNED]";
+                        }
+                    }
+                    catch { }
+
+                    AddTarget(vehicle.transform, label, new Color(0.5f, 0.8f, 1f), 2f);
                 }
             }
             catch { }
         }
 
-        private void DrawItemESP()
+        private void AddItemTargets()
         {
             try
             {
-                // Cash pickups
                 var cashPickups = UnityEngine.Object.FindObjectsOfType<CashPickup>();
                 if (cashPickups != null)
                 {
                     foreach (var cash in cashPickups)
                     {
                         if (cash == null) continue;
-                        try
-                        {
-                            string label = $"${cash.Value:F0}";
-                            DrawEntityLabel(cash.transform, label, new Color(0.2f, 1f, 0.2f), 1f);
-                        }
-                        catch { continue; }
+
+                        var label = "$";
+                        try { label = $"${cash.Value:F0}"; } catch { }
+                        AddTarget(cash.transform, label, new Color(0.2f, 1f, 0.2f), 1f);
                     }
                 }
-                
-                // Item pickups
+
                 var itemPickups = UnityEngine.Object.FindObjectsOfType<ItemPickup>();
                 if (itemPickups != null)
                 {
                     foreach (var item in itemPickups)
                     {
                         if (item == null) continue;
+
+                        var label = "Item";
                         try
                         {
-                            string name = "Item";
-                            try
+                            if (item.ItemToGive != null)
                             {
-                                if (item.ItemToGive != null)
-                                    name = item.ItemToGive.Name ?? "Item";
+                                label = item.ItemToGive.Name ?? "Item";
                             }
-                            catch { }
-                            
-                            DrawEntityLabel(item.transform, name, new Color(0.8f, 0.8f, 0.2f), 1f);
                         }
-                        catch { continue; }
+                        catch { }
+
+                        AddTarget(item.transform, label, new Color(0.8f, 0.8f, 0.2f), 1f);
                     }
                 }
             }
             catch { }
         }
 
-        private void DrawEntityLabel(Transform target, string label, Color color, float heightOffset = 1.5f)
+        private void AddTarget(Transform target, string label, Color color, float heightOffset)
         {
             if (target == null || _playerTransform == null) return;
 
-            float distance = Vector3.Distance(_playerTransform.position, target.position);
-            if (distance > MaxDistance || distance < 2f) return; // Skip very close entities
+            try
+            {
+                var distance = Vector3.Distance(_playerTransform.position, target.position);
+                if (distance > MaxDistance || distance < 2f) return;
 
-            Vector3 screenPos = _camera.WorldToScreenPoint(target.position + Vector3.up * heightOffset);
-            if (screenPos.z <= 0) return; // Behind camera
+                _scratchTargets.Add(new EspTarget(target, label, color, heightOffset));
+            }
+            catch { }
+        }
 
-            // Flip Y for GUI coordinates
+        private bool DrawEntityLabel(EspTarget target)
+        {
+            if (target.Transform == null || _playerTransform == null || _camera == null) return false;
+
+            float distance;
+            Vector3 screenPos;
+
+            try
+            {
+                distance = Vector3.Distance(_playerTransform.position, target.Transform.position);
+                if (distance > MaxDistance || distance < 2f) return false;
+
+                screenPos = _camera.WorldToScreenPoint(target.Transform.position + Vector3.up * target.HeightOffset);
+                if (screenPos.z <= 0f) return false;
+            }
+            catch
+            {
+                return false;
+            }
+
             screenPos.y = Screen.height - screenPos.y;
+            if (screenPos.x < -80f || screenPos.x > Screen.width + 80f ||
+                screenPos.y < -60f || screenPos.y > Screen.height + 60f)
+            {
+                return false;
+            }
 
-            // Build label text
-            string text = label;
-            if (ShowDistance)
-                text += $"\n[{distance:F0}m]";
+            var text = ShowDistance
+                ? $"{target.Label}\n[{distance:F0}m]"
+                : target.Label;
 
-            // Scale based on distance
-            float scale = Mathf.Clamp(1f - (distance / MaxDistance) * 0.5f, 0.5f, 1f);
-            int fontSize = Mathf.RoundToInt(12 * scale);
-            _labelStyle.fontSize = fontSize;
+            var scale = Mathf.Clamp(1f - distance / Mathf.Max(MaxDistance, 1f) * 0.5f, 0.55f, 1f);
+            _labelStyle.fontSize = Mathf.RoundToInt(12f * scale);
 
-            float width = 120 * scale;
-            float height = 40 * scale;
+            var width = 120f * scale;
+            var height = ShowDistance ? 40f * scale : 24f * scale;
+            var rect = new Rect(screenPos.x - width / 2f, screenPos.y - height / 2f, width, height);
 
-            // Draw box if enabled
             if (ShowBoxes)
             {
-                var boxColor = color;
+                var boxColor = target.Color;
                 boxColor.a = 0.3f;
                 GUI.color = boxColor;
-                GUI.Box(new Rect(screenPos.x - width/2, screenPos.y - height/2, width, height), "");
+                GUI.Box(rect, string.Empty);
                 GUI.color = Color.white;
             }
 
-            // Draw shadow
             _labelStyle.normal.textColor = Color.black;
-            GUI.Label(new Rect(screenPos.x - width/2 + 1, screenPos.y - height/2 + 1, width, height), text, _labelStyle);
-            
-            // Draw label
-            _labelStyle.normal.textColor = color;
-            GUI.Label(new Rect(screenPos.x - width/2, screenPos.y - height/2, width, height), text, _labelStyle);
+            GUI.Label(new Rect(rect.x + 1f, rect.y + 1f, rect.width, rect.height), text, _labelStyle);
+
+            _labelStyle.normal.textColor = target.Color;
+            GUI.Label(rect, text, _labelStyle);
+            return true;
+        }
+
+        private readonly struct EspTarget
+        {
+            public readonly Transform Transform;
+            public readonly string Label;
+            public readonly Color Color;
+            public readonly float HeightOffset;
+
+            public EspTarget(Transform transform, string label, Color color, float heightOffset)
+            {
+                Transform = transform;
+                Label = label;
+                Color = color;
+                HeightOffset = heightOffset;
+            }
         }
     }
 }

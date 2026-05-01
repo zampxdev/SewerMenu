@@ -67,18 +67,12 @@ namespace SewerMenu.UI.Pages
                     spawner.SearchFilter = _selectedCategoryIndex == 0 ? "" : _categories[_selectedCategoryIndex];
                 }
                 
-                // Show current category in styled box
-                var oldBg = GUI.backgroundColor;
-                GUI.backgroundColor = new Color(0.15f, 0.15f, 0.18f, 1f);
-                GUILayout.BeginHorizontal(GUI.skin.box, GUILayout.Width(100), GUILayout.Height(24));
-                GUI.backgroundColor = oldBg;
+                Rect categoryRect = GUILayoutUtility.GetRect(100, 24, GUILayout.Width(100), GUILayout.Height(24));
+                SewerSkin.DrawRoundedRect(categoryRect, new Color(0.045f, 0.058f, 0.052f, 0.96f), new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, 0.55f), 6, 1);
                 oldColor = GUI.contentColor;
-                GUI.contentColor = SewerSkin.AccentColor;
-                GUILayout.FlexibleSpace();
-                GUILayout.Label(_categories[_selectedCategoryIndex]);
-                GUILayout.FlexibleSpace();
+                GUI.contentColor = SewerSkin.AccentGlow;
+                GUI.Label(categoryRect, _categories[_selectedCategoryIndex], new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleCenter, fontSize = 11 });
                 GUI.contentColor = oldColor;
-                GUILayout.EndHorizontal();
                 
                 if (DrawButton(">", 25))
                 {
@@ -120,31 +114,28 @@ namespace SewerMenu.UI.Pages
                     var item = filteredItems[i];
                     bool isSelected = spawner.SelectedIndex == i;
                     
-                    GUILayout.BeginHorizontal();
-                    
-                    // Selection styling
-                    var prevBg = GUI.backgroundColor;
-                    var prevContent = GUI.contentColor;
-                    
-                    if (isSelected)
-                    {
-                        GUI.backgroundColor = SewerSkin.AccentDark;
-                        GUI.contentColor = Color.white;
-                    }
-                    
-                    // Item button
-                    if (GUILayout.Button(item.Name, GUILayout.Height(24)))
+                    Rect rowRect = GUILayoutUtility.GetRect(0, 28, GUILayout.ExpandWidth(true));
+                    bool isHovered = rowRect.Contains(Event.current.mousePosition);
+                    Color rowFill = isSelected
+                        ? new Color(SewerSkin.AccentColor.r, SewerSkin.AccentColor.g, SewerSkin.AccentColor.b, 0.16f)
+                        : (isHovered ? new Color(0.09f, 0.11f, 0.105f, 0.96f) : new Color(0.055f, 0.069f, 0.065f, 0.74f));
+                    Color rowBorder = isSelected
+                        ? new Color(SewerSkin.AccentColor.r, SewerSkin.AccentColor.g, SewerSkin.AccentColor.b, 0.55f)
+                        : new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, isHovered ? 0.55f : 0.28f);
+                    SewerSkin.DrawRoundedRect(rowRect, rowFill, rowBorder, 6, 1);
+
+                    oldColor = GUI.contentColor;
+                    GUI.contentColor = isSelected ? SewerSkin.AccentGlow : SewerSkin.TextColor;
+                    GUI.Label(new Rect(rowRect.x + 10, rowRect.y + 5, rowRect.width - 120, 18), item.Name, new GUIStyle(GUI.skin.label) { fontSize = 11 });
+                    GUI.contentColor = SewerSkin.TextMutedColor;
+                    GUI.Label(new Rect(rowRect.x + rowRect.width - 98, rowRect.y + 5, 90, 18), $"[{item.Category}]", new GUIStyle(GUI.skin.label) { alignment = TextAnchor.MiddleRight, fontSize = 10 });
+                    GUI.contentColor = oldColor;
+
+                    if (GUI.Button(rowRect, "", GUIStyle.none))
                     {
                         spawner.SelectedIndex = i;
                     }
-                    
-                    // Category label on right
-                    GUI.contentColor = SewerSkin.TextMutedColor;
-                    GUILayout.Label($"[{item.Category}]", GUILayout.Width(90));
-                    
-                    GUI.backgroundColor = prevBg;
-                    GUI.contentColor = prevContent;
-                    GUILayout.EndHorizontal();
+                    GUILayout.Space(2);
                 }
                 
                 if (filteredItems.Count == 0)
@@ -179,6 +170,13 @@ namespace SewerMenu.UI.Pages
                 {
                     spawner.SpawnAmount = _spawnAmount;
                     spawner.SpawnSelected();
+                }
+
+                if (!string.IsNullOrEmpty(spawner.LastSpawnMessage))
+                {
+                    SewerSkin.DrawStatus(
+                        spawner.LastSpawnMessage,
+                        spawner.LastSpawnSucceeded ? SewerSkin.StatusType.Success : SewerSkin.StatusType.Warning);
                 }
             }
             else

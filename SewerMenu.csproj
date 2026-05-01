@@ -10,7 +10,7 @@
     <!-- Assembly Info -->
     <AssemblyName>SewerMenu</AssemblyName>
     <RootNamespace>SewerMenu</RootNamespace>
-    <Version>1.0.1</Version>
+    <Version>1.0.7</Version>
     <Authors>zampx</Authors>
     <Description>The Ultimate Schedule I Mod Menu</Description>
     
@@ -56,6 +56,10 @@
       <HintPath>$(GamePath)\MelonLoader\Il2CppAssemblies\Assembly-CSharp-firstpass.dll</HintPath>
       <Private>false</Private>
     </Reference>
+    <Reference Include="Il2CppScheduleOne.Core">
+      <HintPath>$(GamePath)\MelonLoader\Il2CppAssemblies\Il2CppScheduleOne.Core.dll</HintPath>
+      <Private>false</Private>
+    </Reference>
     
     <!-- Unity Core Modules -->
     <Reference Include="UnityEngine.CoreModule">
@@ -99,6 +103,12 @@
   <!-- NuGet Packages -->
   <ItemGroup>
     <PackageReference Include="Newtonsoft.Json" Version="13.0.3" />
+  </ItemGroup>
+
+  <!-- Local tooling projects should not be compiled into the MelonLoader mod DLL. -->
+  <ItemGroup>
+    <Compile Remove="tools\**\*.cs" />
+    <None Remove="tmp_cpp2il_*\**" />
   </ItemGroup>
 
   <!-- Define GamePath property - users should set this or use Directory.Build.props -->
