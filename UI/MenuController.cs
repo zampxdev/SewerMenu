@@ -364,15 +364,16 @@ namespace SewerMenu.UI
             }
 
             ToastManager.Draw();
-            if (IsCapturingInput)
-            {
-                MenuInputBlocker.Instance.ConsumeCurrentGuiEvent();
-            }
             SewerSkin.EndUI();
 
             if (drawItemSpawner)
             {
                 ItemSpawnerWindow.Instance.OnGUI();
+            }
+
+            if (drawMainMenu || drawCommandPalette || drawItemSpawner)
+            {
+                MenuInputBlocker.Instance.ConsumeCurrentGuiEvent();
             }
         }
 
