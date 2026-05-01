@@ -20,12 +20,12 @@ SewerMenu is a Schedule I mod menu built on MelonLoader. Version `2.0.0-beta.1` 
 | --- | --- |
 | `F8` | Toggle menu |
 | `Esc` | Close menu |
-| `Ctrl+K` | Open command palette from the menu or gameplay |
+| `Shift+K` | Open or close command palette from the menu or gameplay |
 
 ## 2.0 Beta Highlights
 
 - Reworked modern UI with animated tabs, smoother toggles, favorites, quick actions, and an inspector panel
-- Ctrl+K command palette for toggling features and spawning matching items
+- Shift+K command palette for toggling features, spawning matching items, and closing by typing `close`
 - Animation quality setting with Auto/Balanced/Low modes
 - Menu input lock so scrolling the menu does not scroll hotbar slots
 - Full item spawner with fuzzy search, categories, search commands, quantity presets, and clear inventory failure messages

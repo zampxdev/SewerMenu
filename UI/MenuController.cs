@@ -74,6 +74,7 @@ namespace SewerMenu.UI
         private const float MinHeight = 560f;
         private const float MaxHeight = 1000f;
         private const float ResizeHandleSize = 20f;
+        private const string CommandPaletteShortcutLabel = "Shift+K";
 
         private readonly string[] _tabNames = { "Player", "Economy", "Items", "World", "Vehicles", "Misc", "Settings" };
         private readonly FeatureCategory[] _tabCategories =
@@ -261,7 +262,7 @@ namespace SewerMenu.UI
         {
             try
             {
-                if ((Input.GetKey(KeyCode.LeftControl) || Input.GetKey(KeyCode.RightControl)) && Input.GetKeyDown(KeyCode.K))
+                if (IsCommandPaletteShortcutPressed())
                 {
                     ToggleCommandPalette();
                     return;
@@ -293,7 +294,6 @@ namespace SewerMenu.UI
 
                 if (_commandPaletteVisible && Input.GetKeyDown(KeyCode.Escape))
                 {
-                    CloseCommandPalette();
                     return;
                 }
 
@@ -606,9 +606,9 @@ namespace SewerMenu.UI
                 bool hintHovered = commandHintRect.Contains(Event.current.mousePosition);
                 SewerSkin.DrawRoundedRect(commandHintRect, new Color(0.052f, 0.066f, 0.061f, hintHovered ? 0.96f : 0.78f), new Color(SewerSkin.BorderColor.r, SewerSkin.BorderColor.g, SewerSkin.BorderColor.b, hintHovered ? 0.58f : 0.36f), 7, 1);
                 GUI.contentColor = SewerSkin.AccentGlow;
-                GUI.Label(new Rect(commandHintRect.x + 9f, commandHintRect.y + 5f, 43f, 16f), "Ctrl+K", SewerSkin.GetLabelStyle(10, FontStyle.Bold, TextAnchor.MiddleLeft));
+                GUI.Label(new Rect(commandHintRect.x + 9f, commandHintRect.y + 5f, 48f, 16f), CommandPaletteShortcutLabel, SewerSkin.GetLabelStyle(10, FontStyle.Bold, TextAnchor.MiddleLeft));
                 GUI.contentColor = SewerSkin.TextMutedColor;
-                GUI.Label(new Rect(commandHintRect.x + 56f, commandHintRect.y + 5f, commandHintRect.width - 65f, 16f), "Command Palette", SewerSkin.GetLabelStyle(10, FontStyle.Normal, TextAnchor.MiddleLeft));
+                GUI.Label(new Rect(commandHintRect.x + 62f, commandHintRect.y + 5f, commandHintRect.width - 71f, 16f), "Command Palette", SewerSkin.GetLabelStyle(10, FontStyle.Normal, TextAnchor.MiddleLeft));
                 if (IsRectClicked(commandHintRect))
                 {
                     OpenCommandPalette();
@@ -1033,7 +1033,7 @@ namespace SewerMenu.UI
             GUI.contentColor = SewerSkin.AccentGlow;
             GUI.Label(new Rect(inner.x, inner.y, 210f, 18f), "COMMAND PALETTE", SewerSkin.GetLabelStyle(12, FontStyle.Bold, TextAnchor.MiddleLeft));
             GUI.contentColor = SewerSkin.TextMutedColor;
-            GUI.Label(new Rect(inner.x + inner.width - 190f, inner.y, 190f, 18f), "Ctrl+K open  |  Esc close", SewerSkin.GetLabelStyle(10, FontStyle.Normal, TextAnchor.MiddleRight));
+            GUI.Label(new Rect(inner.x + inner.width - 210f, inner.y, 210f, 18f), CommandPaletteShortcutLabel + " open/close", SewerSkin.GetLabelStyle(10, FontStyle.Normal, TextAnchor.MiddleRight));
 
             Rect queryRect = new Rect(inner.x, inner.y + 26f, inner.width, 40f);
             bool focused = true;
@@ -1071,7 +1071,7 @@ namespace SewerMenu.UI
             }
 
             GUI.contentColor = SewerSkin.TextMutedColor;
-            GUI.Label(new Rect(inner.x, inner.yMax - 20f, inner.width, 16f), "Enter runs selected  |  Up/Down choose  |  Type item quantity at the end to spawn stacks faster", SewerSkin.GetLabelStyle(10, FontStyle.Normal, TextAnchor.MiddleCenter));
+            GUI.Label(new Rect(inner.x, inner.yMax - 20f, inner.width, 16f), "Enter runs selected  |  " + CommandPaletteShortcutLabel + " closes  |  Click outside closes", SewerSkin.GetLabelStyle(10, FontStyle.Normal, TextAnchor.MiddleCenter));
             GUI.contentColor = oldContentColor;
         }
 
@@ -1159,6 +1159,12 @@ namespace SewerMenu.UI
 
             if (e.keyCode == KeyCode.Escape)
             {
+                e.Use();
+                return;
+            }
+
+            if (IsCommandPaletteShortcutEvent(e))
+            {
                 CloseCommandPalette();
                 e.Use();
                 return;
@@ -1189,13 +1195,6 @@ namespace SewerMenu.UI
             if (control && e.keyCode == KeyCode.V)
             {
                 AppendCommandText(GUIUtility.systemCopyBuffer);
-                e.Use();
-                return;
-            }
-
-            if (control && e.keyCode == KeyCode.K)
-            {
-                CloseCommandPalette();
                 e.Use();
                 return;
             }
@@ -1257,6 +1256,7 @@ namespace SewerMenu.UI
             _commandResults.Clear();
 
             string searchQuery = ParseCommandInput(_commandQuery);
+            BuildCloseCommandResult(searchQuery);
             BuildFeatureCommandResults(searchQuery);
             BuildItemCommandResults(searchQuery);
 
@@ -1300,6 +1300,24 @@ namespace SewerMenu.UI
             }
 
             return query.Trim();
+        }
+
+        private void BuildCloseCommandResult(string searchQuery)
+        {
+            if (string.IsNullOrWhiteSpace(searchQuery)) return;
+
+            int score = ScoreCommandMatch("close command palette", "close", "system", "dismiss command panel", searchQuery);
+            if (score <= 0) return;
+
+            _commandResults.Add(new CommandResult
+            {
+                Kind = CommandResultKind.Close,
+                Title = "Close Command Palette",
+                Subtitle = "Dismiss this panel and return to the game.",
+                Badge = "CLOSE",
+                ActionLabel = "CLOSE",
+                Score = score + 400
+            });
         }
 
         private bool TryStripCommandPrefix(ref string query, ref string lower, string prefix, CommandIntent intent)
@@ -1584,6 +1602,12 @@ namespace SewerMenu.UI
         {
             if (result == null) return;
 
+            if (result.Kind == CommandResultKind.Close)
+            {
+                CloseCommandPalette();
+                return;
+            }
+
             if (result.Kind == CommandResultKind.Item)
             {
                 result.ItemSpawner?.SpawnItem(result.Item, result.Quantity);
@@ -1677,6 +1701,17 @@ namespace SewerMenu.UI
             {
                 OpenCommandPalette();
             }
+        }
+
+        private static bool IsCommandPaletteShortcutPressed()
+        {
+            bool shift = Input.GetKey(KeyCode.LeftShift) || Input.GetKey(KeyCode.RightShift);
+            return shift && Input.GetKeyDown(KeyCode.K);
+        }
+
+        private static bool IsCommandPaletteShortcutEvent(Event e)
+        {
+            return e != null && e.shift && e.keyCode == KeyCode.K;
         }
 
         private void ActivateFeature(IFeature feature)
@@ -1861,7 +1896,8 @@ namespace SewerMenu.UI
         private enum CommandResultKind
         {
             Feature,
-            Item
+            Item,
+            Close
         }
 
         private enum FeatureCommandAction
