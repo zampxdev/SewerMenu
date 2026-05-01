@@ -25,9 +25,6 @@ namespace SewerMenu.UI
         private bool _restoreEquippingEnabled = true;
         private bool _restoreHolsterEnabled = true;
         private bool _restoreManagementSlotEnabled = true;
-        private float _lastAcquireAttemptTime = -999f;
-
-        private const float AcquireRetryInterval = 0.35f;
 
         private MenuInputBlocker() { }
 
@@ -55,7 +52,7 @@ namespace SewerMenu.UI
 
         public void Release()
         {
-            if (!_isLocked) return;
+            if (!_isLocked && _gameInput == null && _inventory == null) return;
 
             try
             {
@@ -105,13 +102,6 @@ namespace SewerMenu.UI
 
         private void Acquire()
         {
-            if (Time.unscaledTime - _lastAcquireAttemptTime < AcquireRetryInterval)
-            {
-                return;
-            }
-
-            _lastAcquireAttemptTime = Time.unscaledTime;
-
             try
             {
                 if (GameInput.InstanceExists)
@@ -154,6 +144,10 @@ namespace SewerMenu.UI
                 if (_gameInput == null && GameInput.InstanceExists)
                 {
                     _gameInput = GameInput.Instance;
+                    if (_gameInput != null && _gameInput.PlayerInput != null)
+                    {
+                        _restorePlayerInputEnabled = _gameInput.PlayerInput.enabled;
+                    }
                 }
 
                 if (_gameInput != null)
@@ -176,6 +170,13 @@ namespace SewerMenu.UI
                 if (_inventory == null)
                 {
                     _inventory = GameTypes.Inventory;
+                    if (_inventory != null)
+                    {
+                        _restoreHotbarEnabled = _inventory.HotbarEnabled;
+                        _restoreEquippingEnabled = _inventory.EquippingEnabled;
+                        _restoreHolsterEnabled = _inventory.HolsterEnabled;
+                        _restoreManagementSlotEnabled = _inventory.ManagementSlotEnabled;
+                    }
                 }
 
                 if (_inventory != null)

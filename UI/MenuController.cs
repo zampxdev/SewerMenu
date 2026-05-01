@@ -55,6 +55,7 @@ namespace SewerMenu.UI
         private string _commandQuery = "";
         private string _lastCommandQuery = null;
         private int _commandSelectedIndex = 0;
+        private int _commandPaletteOpenedFrame = -1;
         private float _commandAnim = 1f;
         private CommandIntent _commandIntent = CommandIntent.None;
         private CommandQuantityMode _commandQuantityMode = CommandQuantityMode.Exact;
@@ -172,12 +173,7 @@ namespace SewerMenu.UI
 
             if (!IsCapturingInput)
             {
-                MenuInputBlocker.Instance.Release();
-                EnablePlayerCamera();
-
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
-                _inputCaptureWasActive = false;
+                ReleaseInputCaptureIfIdle();
             }
 
             SaveWindowState();
@@ -273,10 +269,7 @@ namespace SewerMenu.UI
                     MenuInputBlocker.Instance.Update();
                     if (_inputCaptureWasActive)
                     {
-                        EnablePlayerCamera();
-                        Cursor.lockState = CursorLockMode.Locked;
-                        Cursor.visible = false;
-                        _inputCaptureWasActive = false;
+                        ReleaseInputCaptureIfIdle();
                     }
                     return;
                 }
@@ -1157,15 +1150,21 @@ namespace SewerMenu.UI
             Event e = Event.current;
             if (e == null || e.type != EventType.KeyDown) return;
 
-            if (e.keyCode == KeyCode.Escape)
+            if (IsCommandPaletteShortcutEvent(e))
             {
+                if (Time.frameCount == _commandPaletteOpenedFrame)
+                {
+                    e.Use();
+                    return;
+                }
+
+                CloseCommandPalette();
                 e.Use();
                 return;
             }
 
-            if (IsCommandPaletteShortcutEvent(e))
+            if (e.keyCode == KeyCode.Escape)
             {
-                CloseCommandPalette();
                 e.Use();
                 return;
             }
@@ -1660,6 +1659,7 @@ namespace SewerMenu.UI
             _commandQuery = "";
             _lastCommandQuery = null;
             _commandSelectedIndex = 0;
+            _commandPaletteOpenedFrame = Time.frameCount;
             _commandAnim = 0f;
 
             Cursor.lockState = CursorLockMode.None;
@@ -1683,11 +1683,7 @@ namespace SewerMenu.UI
 
             if (!IsCapturingInput)
             {
-                MenuInputBlocker.Instance.Release();
-                EnablePlayerCamera();
-                Cursor.lockState = CursorLockMode.Locked;
-                Cursor.visible = false;
-                _inputCaptureWasActive = false;
+                ReleaseInputCaptureIfIdle();
             }
         }
 
@@ -1712,6 +1708,17 @@ namespace SewerMenu.UI
         private static bool IsCommandPaletteShortcutEvent(Event e)
         {
             return e != null && e.shift && e.keyCode == KeyCode.K;
+        }
+
+        private void ReleaseInputCaptureIfIdle()
+        {
+            if (IsCapturingInput) return;
+
+            MenuInputBlocker.Instance.Release();
+            EnablePlayerCamera();
+            Cursor.lockState = CursorLockMode.Locked;
+            Cursor.visible = false;
+            _inputCaptureWasActive = false;
         }
 
         private void ActivateFeature(IFeature feature)
