@@ -2,22 +2,10 @@
 
 ## 2.0.1 - 2026-05-03
 
-This hotfix focuses on smoother gameplay performance and release automation cleanup after the public 2.0 launch.
-
-### Added
-
-- Added GitHub Actions release upload automation for publishing GitHub release assets to Nexus Mods.
-
-### Changed
-
-- Persisted feature enabled/disabled states immediately so old saved states do not silently come back on the next launch.
-- Reduced hot-loop work in Sprint Speed, Infinite Ammo, God Mode, Infinite Stamina, and Health & Energy.
-- Reduced Infinite Ammo weapon scans and cleared cached weapon references when disabled.
-- Trimmed unnecessary input-lock release work while the menu is closed.
-
-### Fixed
-
-- Fixed disabled features not being written back to config after users toggled them off in the menu.
+- Fixed feature toggles sometimes coming back on after restarting the game.
+- Improved performance for Sprint Speed, Infinite Ammo, God Mode, Infinite Stamina, and Health & Energy.
+- Reduced Infinite Ammo background weapon scanning.
+- Reduced small menu input-lock overhead while the menu is closed.
 
 ## 2.0.0 - 2026-05-01
 

@@ -74,17 +74,6 @@ After Schedule I updates, launch the game once with MelonLoader installed so `Me
 
 Local PowerShell helper scripts are intentionally ignored and are not part of the public source release.
 
-## Release Upload Automation
-
-GitHub Actions includes a release upload workflow that can publish a GitHub release asset to Nexus Mods.
-
-Required repository settings:
-
-- Secret: `NEXUSMODS_API_KEY`
-- Variable: `NEXUSMODS_FILE_GROUP_ID`
-
-Publish a GitHub release with either `SewerMenu.dll` or `SewerMenu-vX.Y.Z.zip` attached. When the release is published, the workflow uploads it to Nexus. It can also be run manually from Actions with a release tag and optional exact asset name.
-
 ## Release Notes
 
-See `CHANGELOG.md` for the 2.0 release notes.
+See `CHANGELOG.md` for release notes.
