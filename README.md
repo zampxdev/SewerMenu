@@ -1,6 +1,6 @@
 # SewerMenu
 
-SewerMenu is a MelonLoader mod menu for **Schedule I**. Version `2.0.0` targets Schedule I `0.4.5f2`.
+SewerMenu is a MelonLoader mod menu for **Schedule I**. Version `2.0.1` targets Schedule I `0.4.5f2`.
 
 ## Highlights
 
