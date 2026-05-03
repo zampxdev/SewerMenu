@@ -18,9 +18,12 @@ namespace SewerMenu.Features.Player
         public override FeatureCategory Category => FeatureCategory.Player;
 
         private const float MaxStamina = 100f;
+        private const float UpdateInterval = 0.1f;
+        private float _nextUpdateTime;
 
         public override void OnEnable()
         {
+            _nextUpdateTime = 0f;
             SewerLogger.Debug("InfiniteStamina enabled");
         }
 
@@ -32,6 +35,10 @@ namespace SewerMenu.Features.Player
         public override void OnUpdate()
         {
             if (!IsEnabled) return;
+
+            float now = Time.unscaledTime;
+            if (now < _nextUpdateTime) return;
+            _nextUpdateTime = now + UpdateInterval;
 
             SafeExecute(() =>
             {

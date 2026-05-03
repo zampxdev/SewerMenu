@@ -17,18 +17,29 @@ namespace SewerMenu.Features.Misc
         public int MinimumAmmo { get; set; } = 999;
 
         private Equippable_RangedWeapon[] _cachedWeapons = Array.Empty<Equippable_RangedWeapon>();
+        private float _nextEquippedRefill;
         private float _nextWeaponRefresh;
         private float _nextVisibleWeaponRefill;
 
-        private const float WeaponCacheRefreshInterval = 1.25f;
-        private const float VisibleWeaponRefillInterval = 0.45f;
+        private const float EquippedRefillInterval = 0.12f;
+        private const float WeaponCacheRefreshInterval = 3f;
+        private const float VisibleWeaponRefillInterval = 0.75f;
 
         public override void OnEnable()
         {
+            _nextEquippedRefill = 0f;
             _nextWeaponRefresh = 0f;
             _nextVisibleWeaponRefill = 0f;
             RefillEquippedItem();
             RefillVisibleWeapons();
+        }
+
+        public override void OnDisable()
+        {
+            _cachedWeapons = Array.Empty<Equippable_RangedWeapon>();
+            _nextEquippedRefill = 0f;
+            _nextWeaponRefresh = 0f;
+            _nextVisibleWeaponRefill = 0f;
         }
 
         public override void OnUpdate()
@@ -39,7 +50,11 @@ namespace SewerMenu.Features.Misc
             {
                 float now = Time.unscaledTime;
 
-                RefillEquippedItem();
+                if (now >= _nextEquippedRefill)
+                {
+                    RefillEquippedItem();
+                    _nextEquippedRefill = now + EquippedRefillInterval;
+                }
 
                 if (now >= _nextWeaponRefresh)
                 {

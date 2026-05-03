@@ -38,7 +38,10 @@ namespace SewerMenu.UI
 
             if (!shouldLock)
             {
-                Release();
+                if (_isLocked || _gameInput != null || _inventory != null)
+                {
+                    Release();
+                }
                 return;
             }
 

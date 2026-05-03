@@ -205,25 +205,49 @@ namespace SewerMenu
         {
             var config = ConfigManager.Instance.Config;
             if (config?.Features == null) return;
+
+            var enabledFeatureNames = new System.Collections.Generic.List<string>();
+            ConfigManager.Instance.BeginFeatureStatePersistenceBlock();
             
-            foreach (var featureConfig in config.Features)
+            try
             {
-                var feature = FeatureManager.Instance.GetFeature(featureConfig.Key);
-                if (feature != null)
+                foreach (var featureConfig in config.Features)
                 {
-                    feature.IsEnabled = featureConfig.Value.Enabled;
-                    
-                    if (!string.IsNullOrEmpty(featureConfig.Value.Hotkey))
+                    var feature = FeatureManager.Instance.GetFeature(featureConfig.Key);
+                    if (feature != null && featureConfig.Value != null)
                     {
-                        if (Enum.TryParse<KeyCode>(featureConfig.Value.Hotkey, out var keyCode))
+                        feature.IsEnabled = featureConfig.Value.Enabled;
+
+                        if (feature.IsEnabled)
                         {
-                            feature.Hotkey = keyCode;
+                            enabledFeatureNames.Add(feature.Name);
+                        }
+
+                        if (!string.IsNullOrEmpty(featureConfig.Value.Hotkey))
+                        {
+                            if (Enum.TryParse<KeyCode>(featureConfig.Value.Hotkey, out var keyCode))
+                            {
+                                feature.Hotkey = keyCode;
+                            }
                         }
                     }
                 }
             }
+            finally
+            {
+                ConfigManager.Instance.EndFeatureStatePersistenceBlock();
+            }
+
+            FeatureManager.Instance.RefreshHotkeyCache();
             
-            SewerLogger.Debug("Applied saved feature states");
+            if (enabledFeatureNames.Count > 0)
+            {
+                SewerLogger.Info("Restored enabled features from config: " + string.Join(", ", enabledFeatureNames));
+            }
+            else
+            {
+                SewerLogger.Debug("No saved enabled features restored");
+            }
         }
         
         public bool IsGameReady => _gameReady && !string.IsNullOrEmpty(_currentScene);

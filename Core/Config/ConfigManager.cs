@@ -23,6 +23,7 @@ namespace SewerMenu.Core.Config
         private bool _initialized = false;
         private float _lastSaveTime = 0f;
         private bool _pendingSave = false;
+        private int _featureStatePersistenceBlockDepth = 0;
         private const float SaveDebounceTime = 0.5f;
         
         #endregion
@@ -320,6 +321,43 @@ namespace SewerMenu.Core.Config
             var config = GetFeatureConfig(featureId);
             config.Enabled = enabled;
             QueueSave();
+        }
+
+        public void PersistFeatureEnabledState(string featureId, bool enabled)
+        {
+            if (!_initialized || Config == null || _featureStatePersistenceBlockDepth > 0)
+            {
+                return;
+            }
+
+            try
+            {
+                var config = GetFeatureConfig(featureId);
+                if (config.Enabled == enabled)
+                {
+                    return;
+                }
+
+                config.Enabled = enabled;
+                QueueSave();
+            }
+            catch (Exception ex)
+            {
+                SewerLogger.Debug($"Could not persist feature state for {featureId}: {ex.Message}");
+            }
+        }
+
+        public void BeginFeatureStatePersistenceBlock()
+        {
+            _featureStatePersistenceBlockDepth++;
+        }
+
+        public void EndFeatureStatePersistenceBlock()
+        {
+            if (_featureStatePersistenceBlockDepth > 0)
+            {
+                _featureStatePersistenceBlockDepth--;
+            }
         }
         
         public void SetFeatureSetting(string featureId, string key, object value)

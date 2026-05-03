@@ -14,12 +14,15 @@ namespace SewerMenu.Features.Player
 
         private const float MaxHealth = 100f;
         private const float MaxEnergy = 100f;
+        private const float UpdateInterval = 0.1f;
+        private float _nextUpdateTime;
 
         public bool InfiniteHealth { get; set; } = false;
         public bool InfiniteEnergy { get; set; } = false;
 
         public override void OnEnable()
         {
+            _nextUpdateTime = 0f;
             SewerLogger.Debug("HealthEnergy feature enabled");
         }
 
@@ -31,6 +34,11 @@ namespace SewerMenu.Features.Player
         public override void OnUpdate()
         {
             if (!IsEnabled) return;
+            if (!InfiniteHealth && !InfiniteEnergy) return;
+
+            float now = Time.unscaledTime;
+            if (now < _nextUpdateTime) return;
+            _nextUpdateTime = now + UpdateInterval;
 
             SafeExecute(() =>
             {

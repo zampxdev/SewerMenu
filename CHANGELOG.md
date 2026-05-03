@@ -24,6 +24,9 @@ This is the public 2.0 release for Schedule I `0.4.5f2`.
 - Improved config save timing and UI timers by using unscaled time where appropriate.
 - Reduced unnecessary scans in high-frequency feature updates.
 - Updated local verification so it does not overwrite the game Mods folder with a Debug DLL.
+- Persisted feature enabled/disabled states immediately so old saved states do not silently come back on the next launch.
+- Reduced hot-loop work in Sprint Speed, Infinite Ammo, God Mode, Infinite Stamina, and Health & Energy.
+- Added GitHub Actions release upload automation for publishing GitHub release assets to Nexus Mods.
 
 ### Fixed
 
@@ -32,3 +35,4 @@ This is the public 2.0 release for Schedule I `0.4.5f2`.
 - Fixed item spawner text clipping in rows and footer status text.
 - Fixed inventory failure feedback so full item spawning reports when items cannot fit.
 - Fixed menu resize stability issues from expensive resize-time UI behavior.
+- Fixed disabled features not being written back to config after users toggled them off in the menu.

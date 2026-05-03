@@ -21,6 +21,7 @@ namespace SewerMenu.Features.Base
         
         private readonly Dictionary<string, IFeature> _features = new Dictionary<string, IFeature>();
         private readonly Dictionary<FeatureCategory, List<IFeature>> _featuresByCategory = new Dictionary<FeatureCategory, List<IFeature>>();
+        private readonly List<IFeature> _hotkeyFeatures = new List<IFeature>();
         private bool _initialized = false;
         
         #endregion
@@ -143,6 +144,7 @@ namespace SewerMenu.Features.Base
                 feature.OnUnregister();
                 _features.Remove(featureId);
                 _featuresByCategory[feature.Category].Remove(feature);
+                _hotkeyFeatures.Remove(feature);
                 
                 SewerLogger.Debug($"Unregistered feature: {feature.Name}");
             }
@@ -266,20 +268,30 @@ namespace SewerMenu.Features.Base
         public void Shutdown()
         {
             SewerLogger.Info("Shutting down FeatureManager...");
-            
-            foreach (var feature in _features.Values.ToList())
+
+            Core.Config.ConfigManager.Instance.BeginFeatureStatePersistenceBlock();
+
+            try
             {
-                try
+                foreach (var feature in _features.Values.ToList())
                 {
-                    feature.OnUnregister();
+                    try
+                    {
+                        feature.OnUnregister();
+                    }
+                    catch (Exception ex)
+                    {
+                        SewerLogger.Error($"Error unregistering {feature.Name}", ex);
+                    }
                 }
-                catch (Exception ex)
-                {
-                    SewerLogger.Error($"Error unregistering {feature.Name}", ex);
-                }
+            }
+            finally
+            {
+                Core.Config.ConfigManager.Instance.EndFeatureStatePersistenceBlock();
             }
             
             _features.Clear();
+            _hotkeyFeatures.Clear();
             foreach (var list in _featuresByCategory.Values)
             {
                 list.Clear();
@@ -314,6 +326,7 @@ namespace SewerMenu.Features.Base
                 }
                 
                 SetDefaultHotkeys();
+                RefreshHotkeyCache();
             }
             catch (Exception ex)
             {
@@ -347,8 +360,9 @@ namespace SewerMenu.Features.Base
         
         private void ProcessHotkeys()
         {
-            foreach (var feature in _features.Values)
+            for (int i = 0; i < _hotkeyFeatures.Count; i++)
             {
+                var feature = _hotkeyFeatures[i];
                 if (feature.Hotkey.HasValue && Input.GetKeyDown(feature.Hotkey.Value))
                 {
                     if (feature.IsToggleable)
@@ -369,6 +383,7 @@ namespace SewerMenu.Features.Base
             if (feature != null)
             {
                 feature.Hotkey = hotkey;
+                RefreshHotkeyCache();
                 
                 // Persist hotkey to config
                 var configManager = Core.Config.ConfigManager.Instance;
@@ -380,6 +395,19 @@ namespace SewerMenu.Features.Base
                 }
                 
                 SewerLogger.Debug($"Set hotkey for {feature.Name}: {hotkey}");
+            }
+        }
+
+        public void RefreshHotkeyCache()
+        {
+            _hotkeyFeatures.Clear();
+
+            foreach (var feature in _features.Values)
+            {
+                if (feature.Hotkey.HasValue)
+                {
+                    _hotkeyFeatures.Add(feature);
+                }
             }
         }
         

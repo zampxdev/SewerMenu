@@ -1,0 +1,177 @@
+name: Release Upload
+
+on:
+  release:
+    types:
+      - published
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: GitHub release tag to upload. Leave empty to use the latest release.
+        required: false
+        type: string
+        default: ""
+      asset_name:
+        description: Exact GitHub release asset to upload. Leave empty to auto-pick a zip or SewerMenu.dll.
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  contents: read
+
+jobs:
+  nexus:
+    name: Upload GitHub release to Nexus Mods
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout release notes assets
+        uses: actions/checkout@v4
+
+      - name: Resolve release
+        id: release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ github.event.release.tag_name }}"
+
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+            $tag = "${{ inputs.release_tag }}"
+          }
+
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+            $tag = gh release view --json tagName --jq ".tagName"
+          }
+
+          if ([string]::IsNullOrWhiteSpace($tag)) {
+            throw "Could not resolve a GitHub release tag."
+          }
+
+          $version = $tag
+          if ($version.StartsWith("v")) {
+            $version = $version.Substring(1)
+          }
+
+          "tag=$tag" >> $env:GITHUB_OUTPUT
+          "version=$version" >> $env:GITHUB_OUTPUT
+
+      - name: Download GitHub release asset
+        id: download
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          New-Item -ItemType Directory -Force -Path "artifacts" | Out-Null
+
+          $tag = "${{ steps.release.outputs.tag }}"
+          $assetName = "${{ inputs.asset_name }}"
+
+          for ($attempt = 1; $attempt -le 6; $attempt++) {
+            $assets = gh release view $tag --json assets --jq ".assets[].name"
+
+            if ([string]::IsNullOrWhiteSpace($assetName)) {
+              $assetName = $assets | Where-Object { $_ -match "^SewerMenu-v.+\.zip$" } | Select-Object -First 1
+            }
+
+            if ([string]::IsNullOrWhiteSpace($assetName)) {
+              $assetName = $assets | Where-Object { $_ -match "\.zip$" } | Select-Object -First 1
+            }
+
+            if ([string]::IsNullOrWhiteSpace($assetName)) {
+              $assetName = $assets | Where-Object { $_ -eq "SewerMenu.dll" } | Select-Object -First 1
+            }
+
+            if (-not [string]::IsNullOrWhiteSpace($assetName)) {
+              break
+            }
+
+            if ($attempt -lt 6) {
+              Start-Sleep -Seconds 10
+            }
+          }
+
+          if ([string]::IsNullOrWhiteSpace($assetName)) {
+            throw "Release $tag has no usable asset. Attach SewerMenu.dll or a SewerMenu zip to the GitHub release."
+          }
+
+          gh release download $tag --pattern $assetName --dir "artifacts" --clobber
+          "asset_name=$assetName" >> $env:GITHUB_OUTPUT
+
+      - name: Prepare Nexus package
+        id: package
+        shell: pwsh
+        run: |
+          $version = "${{ steps.release.outputs.version }}"
+          $assetName = "${{ steps.download.outputs.asset_name }}"
+          $assetPath = Join-Path "artifacts" $assetName
+          $zipPath = "artifacts/SewerMenu-v$version.zip"
+
+          if ($assetName.EndsWith(".zip", [System.StringComparison]::OrdinalIgnoreCase)) {
+            $zipPath = $assetPath
+          } else {
+            Remove-Item -Recurse -Force "package" -ErrorAction SilentlyContinue
+            New-Item -ItemType Directory -Force -Path "package/Mods" | Out-Null
+
+            Copy-Item $assetPath "package/Mods/SewerMenu.dll"
+
+            if (Test-Path "README.md") {
+              Copy-Item "README.md" "package/README.md"
+            }
+
+            if (Test-Path "CHANGELOG.md") {
+              Copy-Item "CHANGELOG.md" "package/CHANGELOG.md"
+            }
+
+            Compress-Archive -Path "package/*" -DestinationPath $zipPath -Force
+          }
+
+          "zip_path=$zipPath" >> $env:GITHUB_OUTPUT
+
+      - name: Read Nexus description
+        id: nexus_description
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "${{ steps.release.outputs.tag }}"
+          $description = gh release view $tag --json body --jq ".body"
+
+          if ([string]::IsNullOrWhiteSpace($description) -and (Test-Path "CHANGELOG.md")) {
+            $description = Get-Content "CHANGELOG.md" -Raw
+          }
+
+          if ([string]::IsNullOrWhiteSpace($description)) {
+            $description = "SewerMenu v${{ steps.release.outputs.version }}"
+          }
+
+          "description<<EOF" >> $env:GITHUB_OUTPUT
+          $description >> $env:GITHUB_OUTPUT
+          "EOF" >> $env:GITHUB_OUTPUT
+
+      - name: Check Nexus settings
+        shell: pwsh
+        env:
+          NEXUSMODS_API_KEY: ${{ secrets.NEXUSMODS_API_KEY }}
+          NEXUSMODS_FILE_GROUP_ID: ${{ vars.NEXUSMODS_FILE_GROUP_ID }}
+        run: |
+          if ([string]::IsNullOrWhiteSpace($env:NEXUSMODS_API_KEY)) {
+            throw "Missing repository secret NEXUSMODS_API_KEY."
+          }
+
+          if ([string]::IsNullOrWhiteSpace($env:NEXUSMODS_FILE_GROUP_ID)) {
+            throw "Missing repository variable NEXUSMODS_FILE_GROUP_ID."
+          }
+
+      - name: Upload to Nexus Mods
+        uses: Nexus-Mods/upload-action@v1.0.0-beta.5
+        with:
+          api_key: ${{ secrets.NEXUSMODS_API_KEY }}
+          file_group_id: ${{ vars.NEXUSMODS_FILE_GROUP_ID }}
+          filename: ${{ steps.package.outputs.zip_path }}
+          version: ${{ steps.release.outputs.version }}
+          display_name: SewerMenu v${{ steps.release.outputs.version }}
+          description: ${{ steps.nexus_description.outputs.description }}
+          file_category: main
+          archive_existing_file: true

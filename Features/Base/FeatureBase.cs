@@ -52,12 +52,14 @@ namespace SewerMenu.Features.Base
                         OnEnable();
                         SewerLogger.FeatureToggled(Name, true);
                         ShowToggleToast(true);
+                        PersistEnabledState(true);
                     }
                     else
                     {
                         OnDisable();
                         SewerLogger.FeatureToggled(Name, false);
                         ShowToggleToast(false);
+                        PersistEnabledState(false);
                     }
                 }
                 catch (Exception ex)
@@ -178,6 +180,15 @@ namespace SewerMenu.Features.Base
                         Name + (enabled ? " enabled" : " disabled"),
                         enabled ? SewerMenu.UI.SewerSkin.StatusType.Success : SewerMenu.UI.SewerSkin.StatusType.Normal);
                 }
+            }
+            catch { }
+        }
+
+        private void PersistEnabledState(bool enabled)
+        {
+            try
+            {
+                SewerMenu.Core.Config.ConfigManager.Instance.PersistFeatureEnabledState(Id, enabled);
             }
             catch { }
         }
